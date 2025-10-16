@@ -181,12 +181,12 @@ with col1:
 
 with col2:
     st.subheader("🔥 Numere pentru generare (top numere)")
-    top_count = st.number_input(
+    top_count = st.slider(
         "Câte numere din top?",
         min_value=10,
         max_value=66,
         value=50,
-        step=5
+        step=1
     )
     
     if st.session_state.frequency:
@@ -225,85 +225,103 @@ if st.button("🚀 Generează variante"):
         st.error("❌ Încarcă datele și configurează filtrele")
     else:
         top_nums = st.session_state.top_numbers
-        variants = set()
-        max_attempts = num_variants * 50
-        attempts = 0
         
-        while len(variants) < num_variants and attempts < max_attempts:
-            attempts += 1
+        # Reset pentru Premium Hybrid
+        if "premium_variants" in st.session_state:
+            del st.session_state.premium_variants
+        if "premium_index" in st.session_state:
+            del st.session_state.premium_index
+        
+        # Pentru Premium Hybrid - genereaza toate variantele posibile
+        if strategy == "🔥❄️ Premium Hybrid (3 din top 25 + 1 din rest)":
+            from itertools import combinations
+            top25 = top_nums[:25]
+            rest = top_nums[25:]
             
-            if strategy == "🎯 Standard (4 numere aleatoare)":
-                variant = tuple(sorted(random.sample(top_nums, 4)))
+            if len(rest) > 0:
+                st.session_state.variants = []
+                for three in combinations(top25, 3):
+                    for one in rest:
+                        variant = tuple(sorted(list(three) + [one]))
+                        st.session_state.variants.append(variant)
+                st.session_state.variants = sorted(list(set(st.session_state.variants)))
+                
+                st.success(f"✅ Generate {len(st.session_state.variants)} variante UNICE (toate posibilele)")
+                st.info(f"📊 Strategie: {strategy}")
+            else:
+                st.error("❌ Nu sunt suficiente numere în rest pentru această strategie")
+        
+        else:
+            # Pentru alte strategii - generează cu limita setată
+            variants = set()
+            max_attempts = num_variants * 50
+            attempts = 0
             
-            elif strategy == "🔥 Hot Numbers (3 din top 10 + 1 din rest)":
-                top10 = top_nums[:10]
-                rest = top_nums[10:]
-                if len(rest) > 0:
-                    three = random.sample(top10, min(3, len(top10)))
-                    one = random.sample(rest, 1)
-                    variant = tuple(sorted(three + one))
-                else:
+            while len(variants) < num_variants and attempts < max_attempts:
+                attempts += 1
+                
+                if strategy == "🎯 Standard (4 numere aleatoare)":
                     variant = tuple(sorted(random.sample(top_nums, 4)))
-            
-            elif strategy == "❄️ Cold-Hot Hybrid (2 din top 20 + 2 din 21-50)":
-                top20 = top_nums[:20]
-                rest = top_nums[20:]
-                if len(rest) >= 2:
-                    two_hot = random.sample(top20, min(2, len(top20)))
-                    two_cold = random.sample(rest, min(2, len(rest)))
-                    variant = tuple(sorted(two_hot + two_cold))
-                else:
-                    variant = tuple(sorted(random.sample(top_nums, 4)))
-            
-            elif strategy == "🔥❄️ Premium Hybrid (3 din top 25 + 1 din rest)":
-                top25 = top_nums[:25]
-                rest = top_nums[25:]
-                if len(rest) > 0:
-                    three = random.sample(top25, min(3, len(top25)))
-                    one = random.sample(rest, 1)
-                    variant = tuple(sorted(three + one))
-                else:
-                    variant = tuple(sorted(random.sample(top_nums, 4)))
-            
-            elif strategy == "🌀 Random Pairs (2 perechi aleatoare)":
-                if len(top_nums) >= 4:
-                    pair1 = random.sample(top_nums, 2)
-                    pair2 = random.sample(top_nums, 2)
-                    variant = tuple(sorted(pair1 + pair2))
-                else:
-                    variant = tuple(sorted(random.sample(top_nums, 4)))
-            
-            elif strategy == "⚡ Frecvență Ponderată (numere cu mai multă frecvență)":
-                weights = [st.session_state.frequency.get(n, 1) for n in top_nums]
-                variant = tuple(sorted(random.choices(top_nums, weights=weights, k=4)))
-            
-            elif strategy == "🎪 Mix Strategy (combinație din toate)":
-                choice = random.randint(1, 6)
-                if choice == 1:
-                    variant = tuple(sorted(random.sample(top_nums, 4)))
-                elif choice == 2:
+                
+                elif strategy == "🔥 Hot Numbers (3 din top 10 + 1 din rest)":
                     top10 = top_nums[:10]
                     rest = top_nums[10:]
-                    variant = tuple(sorted(random.sample(top10, 3) + random.sample(rest, 1))) if len(rest) > 0 else tuple(sorted(random.sample(top_nums, 4)))
-                elif choice == 3:
+                    if len(rest) > 0:
+                        three = random.sample(top10, min(3, len(top10)))
+                        one = random.sample(rest, 1)
+                        variant = tuple(sorted(three + one))
+                    else:
+                        variant = tuple(sorted(random.sample(top_nums, 4)))
+                
+                elif strategy == "❄️ Cold-Hot Hybrid (2 din top 20 + 2 din 21-50)":
                     top20 = top_nums[:20]
                     rest = top_nums[20:]
-                    variant = tuple(sorted(random.sample(top20, 2) + random.sample(rest, 2))) if len(rest) >= 2 else tuple(sorted(random.sample(top_nums, 4)))
-                elif choice == 4:
-                    variant = tuple(sorted(random.sample(top_nums, 2) + random.sample(top_nums, 2)))
-                elif choice == 5:
+                    if len(rest) >= 2:
+                        two_hot = random.sample(top20, min(2, len(top20)))
+                        two_cold = random.sample(rest, min(2, len(rest)))
+                        variant = tuple(sorted(two_hot + two_cold))
+                    else:
+                        variant = tuple(sorted(random.sample(top_nums, 4)))
+                
+                elif strategy == "🌀 Random Pairs (2 perechi aleatoare)":
+                    if len(top_nums) >= 4:
+                        pair1 = random.sample(top_nums, 2)
+                        pair2 = random.sample(top_nums, 2)
+                        variant = tuple(sorted(pair1 + pair2))
+                    else:
+                        variant = tuple(sorted(random.sample(top_nums, 4)))
+                
+                elif strategy == "⚡ Frecvență Ponderată (numere cu mai multă frecvență)":
                     weights = [st.session_state.frequency.get(n, 1) for n in top_nums]
                     variant = tuple(sorted(random.choices(top_nums, weights=weights, k=4)))
-                else:
-                    top25 = top_nums[:25]
-                    rest = top_nums[25:]
-                    variant = tuple(sorted(random.sample(top25, 3) + random.sample(rest, 1))) if len(rest) > 0 else tuple(sorted(random.sample(top_nums, 4)))
+                
+                elif strategy == "🎪 Mix Strategy (combinație din toate)":
+                    choice = random.randint(1, 6)
+                    if choice == 1:
+                        variant = tuple(sorted(random.sample(top_nums, 4)))
+                    elif choice == 2:
+                        top10 = top_nums[:10]
+                        rest = top_nums[10:]
+                        variant = tuple(sorted(random.sample(top10, 3) + random.sample(rest, 1))) if len(rest) > 0 else tuple(sorted(random.sample(top_nums, 4)))
+                    elif choice == 3:
+                        top20 = top_nums[:20]
+                        rest = top_nums[20:]
+                        variant = tuple(sorted(random.sample(top20, 2) + random.sample(rest, 2))) if len(rest) >= 2 else tuple(sorted(random.sample(top_nums, 4)))
+                    elif choice == 4:
+                        variant = tuple(sorted(random.sample(top_nums, 2) + random.sample(top_nums, 2)))
+                    elif choice == 5:
+                        weights = [st.session_state.frequency.get(n, 1) for n in top_nums]
+                        variant = tuple(sorted(random.choices(top_nums, weights=weights, k=4)))
+                    else:
+                        top25 = top_nums[:25]
+                        rest = top_nums[25:]
+                        variant = tuple(sorted(random.sample(top25, 3) + random.sample(rest, 1))) if len(rest) > 0 else tuple(sorted(random.sample(top_nums, 4)))
+                
+                variants.add(variant)
             
-            variants.add(variant)
-        
-        st.session_state.variants = sorted(list(variants))
-        st.success(f"✅ Generate {len(st.session_state.variants)} variante unice în {attempts} încercări")
-        st.info(f"📊 Strategie: {strategy}")
+            st.session_state.variants = sorted(list(variants))
+            st.success(f"✅ Generate {len(st.session_state.variants)} variante unice în {attempts} încercări")
+            st.info(f"📊 Strategie: {strategy}")
 
 # --- Secțiunea 4: Preview și Export ---
 if st.session_state.variants:
