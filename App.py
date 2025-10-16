@@ -1,14 +1,18 @@
+import random
+from itertools import combinations
+
 if st.button("🚀 Generează variante"):
     if not st.session_state.top_numbers:
         st.error("❌ Încarcă datele și configurează filtrele")
     else:
         top_nums = st.session_state.top_numbers
+        strategy = st.session_state.get("strategy", "🎯 Standard (4 numere aleatoare)")
+        num_variants = st.session_state.get("num_variants", 10)
         
         variants = set()
 
         # --- Strategie specială: Premium Hybrid ---
         if strategy == "🔥❄️ Premium Hybrid (toate posibilele 3+1 din top 25/rest)":
-            from itertools import combinations
             top25 = top_nums[:25]
             rest = top_nums[25:]
             
