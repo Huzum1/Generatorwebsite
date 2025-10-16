@@ -2,6 +2,7 @@ import streamlit as st
 import random
 import pandas as pd
 from itertools import combinations
+from collections import Counter
 
 # --- Inițializare Session State ---
 def init_session_state():
@@ -231,13 +232,14 @@ with col2:
         for variant in st.session_state.variants:
             all_nums_in_variants.extend(variant)
         
-        from collections import Counter
         num_freq = Counter(all_nums_in_variants)
         top_nums_freq = sorted(num_freq.items(), key=lambda x: x[1], reverse=True)[:10]
         
-        st.subheader("🔥 Top 10 Numere în Variante")
+        st.subheader("🔥 Top 10 Numere în Variante (Variante Generate)")
         for num, freq in top_nums_freq:
             st.text(f"{num}: {freq} apariții")
+    else:
+        st.info("Generează variante pentru a vedea statistici")
 
 st.divider()
 
