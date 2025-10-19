@@ -472,7 +472,6 @@ def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_n
         ]
         strategy_to_run = random.choice(mix_choices)
         
-        # Ruleaza strategia aleasa. Daca rezultatul e o lista de liste (bug), aplatizeaza-l
         mixed_result = generate_variant_by_strategy(strategy_to_run, top_nums, variant_size, exclude_numbers, max_num, q1, q3, historic_rounds_set, cold_data, top_pairs, quadrants, cold_candidates)
         variant = [item for item in mixed_result if isinstance(item, int)]
 
@@ -584,17 +583,18 @@ if st.session_state.variants:
     st.dataframe(preview_df, use_container_width=True, hide_index=True)
 
     # ---------------------------------------------
-    # LOGICA DE EXPORT CORECTATĂ FINAL
+    # LOGICA DE EXPORT CORECTATĂ FINAL PENTRU .TXT FĂRĂ ANTET
     # ---------------------------------------------
     
-    # Creează liniile de text în formatul solicitat: ID, COMBINAȚIE
-    export_lines = ["ID,COMBINATIE"] # Header
+    # Creează liniile de text în formatul solicitat: ID, COMBINATIE
+    export_lines = []
     for i, v in enumerate(st.session_state.variants):
         # Combinația este separată prin spațiu: 3 6 8 56
         variant_str = " ".join(map(str, sorted(v)))
-        # Linia finală este: 1,3 6 8 56
+        # Linia finală este: 1,3 6 8 56 (fără antet)
         export_lines.append(f"{i+1},{variant_str}")
         
     txt_output = "\n".join(export_lines)
 
     st.download_button("⬇️ Descarcă TOATE variantele (CSV/TXT)", txt_output, "variante_generate.csv", "text/csv")
+    # Am păstrat extensia .csv deoarece formatul este cel CSV (separator virgulă)
