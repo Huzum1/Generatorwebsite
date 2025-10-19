@@ -36,7 +36,7 @@ def analyze_pairs(rounds, max_num):
     pair_counts = Counter()
     for round_nums in rounds:
         sorted_nums = sorted(round_nums)
-        # Folosim combinations pentru a gasi toate perechile (nu doar cele adiacente)
+        # Folosim combinations pentru a gasi toate perechile
         for pair in itertools.combinations(sorted_nums, 2):
             pair_counts[tuple(sorted(pair))] += 1
     
@@ -60,7 +60,6 @@ def analyze_cold_streak(rounds, max_num):
     cold_streak = {}
     all_nums = set(range(1, max_num + 1))
     
-    # Incepem de la ultima runda (cea mai recenta)
     for num in all_nums:
         age = 0
         found = False
@@ -85,7 +84,7 @@ def proceseaza_runde(lines):
             
             # Validare: Numerele nu trebuie sa depaseasca MAX_NUMBER
             if any(n > st.session_state.max_number or n < 1 for n in numbers):
-                st.error(f"Eroare: Runda conține numere în afara intervalului 1 la {st.session_state.max_number}.")
+                st.error(f"Eroare: Runda conține numere în afara intervalului 1 la {st.session_state.max_number}. Verificați datele de intrare.")
                 return None, None, None
                 
             if numbers:
@@ -240,7 +239,7 @@ strategy = st.selectbox(
         "🥇 5. Perechi de Aur (Bazat pe Top Perechi)",
         "🔄 6. Par-Impar Echilibrat (~50/50)",
         "🗺️ 7. Câmpuri de Forță (Minimum 3 Cadrane)",
-        "🕰️ 8. Aproape de Întoarcere (Include numere "în vârstă")",
+        "🕰️ 8. Aproape de Întoarcere (Include numere 'în vârstă')", # CORECTAT AICI
         "⛓️ 9. Numere Consecutive (Asigură o pereche)",
         "⭐ 10. Frecvență & Vecinătate",
         "💡 11. Restantierul (Cold Booster)",
@@ -460,10 +459,9 @@ if st.button("🚀 Generează variante și aplică filtrele de calitate"):
                         best_sum_diff = current_diff
                         best_variant = temp_variant
                         
-                variant = best_variant if best_variant else random.sample(top_nums, variant_size)
+                variant = best_variant if best_variant and len(best_variant) == variant_size else random.sample(top_nums, variant_size)
                 
             elif strategy == "🧬 13. Adâncimea Istoriei (Aderență la ultimele 50 de runde)":
-                # Strategia 13 este similară cu Filtrul 3, dar o aplică la generare.
                 
                 num_common = min(random.randint(3, 4), variant_size) # Numar de numere comune tinta
                 
@@ -486,8 +484,15 @@ if st.button("🚀 Generează variante și aplică filtrele de calitate"):
                 else:
                     variant = random.sample(top_nums, variant_size) # Fallback standard
 
-            else:  # 🧪 14. Mix Strategy (Combinație aleatorie) sau alte strategii neimplementate
-                variant = random.sample(top_nums, variant_size)
+            else:  # 🧪 14. Mix Strategy (Combinație aleatorie)
+                # Alege aleatoriu între strategiile 1, 2, 4, 6, 9
+                mix_choices = [
+                    lambda: random.sample(top_nums, variant_size), # 1. Standard
+                    lambda: random.sample(top_nums[:10], min(3, variant_size)) + random.sample(top_nums[10:], max(variant_size-3, 0)), # 2. Hot
+                    lambda: weighted_sample_unique(top_nums, [st.session_state.frequency.get(n, 1) for n in top_nums], variant_size), # 4. Ponderata
+                    lambda: [n for n in random.sample([n for n in top_nums if n % 2 == 0], variant_size // 2) + random.sample([n for n in top_nums if n % 2 != 0], variant_size - (variant_size // 2))], # 6. Par/Impar
+                ]
+                variant = random.choice(mix_choices)()
             
             # --- 3.2. Filtre de Calitate (Se aplică TOATE variantelor generate) ---
 
