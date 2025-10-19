@@ -257,14 +257,11 @@ selected_strategies_keys = []
 strategy_items = list(ALL_STRATEGIES.items())
 
 for i, (label, key) in enumerate(strategy_items):
-    if i < len(strategy_items) / 2:
-        with col_a:
-            if st.checkbox(label, key=f"strat_{key}"):
-                selected_strategies_keys.append(key)
-    else:
-        with col_b:
-            if st.checkbox(label, key=f"strat_{key}"):
-                selected_strategies_keys.append(key)
+    # Imparte in mod egal pe cele doua coloane
+    target_column = col_a if i < len(strategy_items) / 2 else col_b
+    with target_column:
+        if st.checkbox(label, key=f"strat_{key}"):
+            selected_strategies_keys.append(key)
 
 st.session_state.selected_strategies = selected_strategies_keys
 
@@ -291,7 +288,7 @@ def weighted_sample_unique(population, weights, k):
         
     return sample
 
-# --- Functie pentru generarea variantei pe baza strategiei ---
+# --- Functie pentru generarea variantei pe baza strategiei (logica detaliata) ---
 def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_numbers, max_num, q1, q3, historic_rounds_set, cold_data, top_pairs, quadrants, cold_candidates):
     
     variant = []
@@ -457,11 +454,11 @@ def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_n
         
         # Extrage si filtreaza rezultatul pentru a evita liste imbricate
         mixed_result = random.choice(mix_choices)()
+        # Asigura-te ca rezultatul este o lista plata de numere intregi
         variant = [item for sublist in (mixed_result if isinstance(mixed_result, list) else [mixed_result]) for item in (sublist if isinstance(sublist, list) else [sublist]) if isinstance(item, int)]
 
-    # Asigură-te că varianta are dimensiunea corectă înainte de return
+    # Asigură-te că varianta are dimensiunea corectă înainte de return (final fallback)
     if len(variant) != variant_size:
-        # Fallback dacă o strategie a eșuat să producă mărimea corectă
         variant = random.sample(top_nums, variant_size)
         
     return variant
@@ -493,8 +490,6 @@ if st.button("🚀 Generează variante și aplică filtrele de calitate"):
         
         strategies_to_use = st.session_state.selected_strategies
         num_strategies = len(strategies_to_use)
-        
-        variants_per_strategy = num_variants // num_strategies if num_strategies > 0 else 0
         
         while len(variants) < num_variants and attempts < max_attempts:
             attempts += 1
@@ -542,14 +537,16 @@ if st.button("🚀 Generează variante și aplică filtrele de calitate"):
 
         st.session_state.variants = list(variants)
         random.shuffle(st.session_state.variants)
+        
+        selected_strategy_labels = [k for k, v in ALL_STRATEGIES.items() if v in strategies_to_use]
 
-        st.success(f"✅ Generate **{len(st.session_state.variants)}** variante UNICE ({variant_size}/{variant_size}) în {attempts} încercări, folosind strategiile: **{', '.join([k for k, v in ALL_STRATEGIES.items() if v in strategies_to_use])}**")
+        st.success(f"✅ Generate **{len(st.session_state.variants)}** variante UNICE ({variant_size}/{variant_size}) în {attempts} încercări, folosind strategiile: **{', '.join(selected_strategy_labels)}**")
         if len(st.session_state.variants) < num_variants:
              st.warning(f"⚠️ Nu s-au putut genera {num_variants} variante unice după aplicarea filtrelor de calitate. Au rămas {len(st.session_state.variants)}.")
 
 st.markdown("---")
 
-# --- Secțiunea 4: Preview & Export ---
+# --- Secțiunea 4: Preview & Export (MODIFICATĂ) ---
 if st.session_state.variants:
     st.header("4. Preview și Export")
     
@@ -573,12 +570,16 @@ if st.session_state.variants:
         st.info(f"Suma medie a variantelor generate: **{avg_sum:.2f}** (Optim: {st.session_state.sum_range[0]}-{st.session_state.sum_range[1]})")
 
     
-    preview_count = st.slider("Câte variante să afișez (Preview)?", 5, min(50, len(st.session_state.variants)), 20)
+    # --- Preview fix de 20 de variante (FARA SLIDER) ---
+    preview_count = min(20, len(st.session_state.variants))
+    st.subheader(f"Preview (Primele {preview_count} variante)")
+    
     preview_df = pd.DataFrame(
         [[i+1, " ".join(map(str, v))] for i, v in enumerate(st.session_state.variants[:preview_count])],
         columns=["ID", "Combinație"]
     )
     st.dataframe(preview_df, use_container_width=True, hide_index=True)
 
+    # --- Export Toate Variantele ---
     txt_output = "\n".join([",".join(map(str, v)) for v in st.session_state.variants])
-    st.download_button("⬇️ Descarcă variante (CSV/TXT)", txt_output, "variante_generate.txt", "text/plain")
+    st.download_button("⬇️ Descarcă TOATE variantele (CSV/TXT)", txt_output, "variante_generate.txt", "text/plain")
