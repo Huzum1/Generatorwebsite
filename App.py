@@ -28,6 +28,9 @@ if "max_number" not in st.session_state:
     st.session_state.max_number = 80
 if "pair_frequency" not in st.session_state:
     st.session_state.pair_frequency = {}
+if "selected_strategies" not in st.session_state:
+    st.session_state.selected_strategies = []
+
 
 # --- Funcții Avansate de Analiză ---
 
@@ -229,25 +232,41 @@ with col_size:
 with col_num:
     num_variants = st.number_input("Câte variante unice să generezi?", 10, 10000, 1000, 10)
 
-strategy = st.selectbox(
-    "Alege strategia:",
-    [
-        "🎯 1. Standard (numere aleatoare din Top N)",
-        "🔥 2. Hot Numbers (3 din top 10 + rest aleatoriu)",
-        "❄️ 3. Cold-Hot Hybrid (jumătate top 20, jumătate rest)",
-        "⚡ 4. Frecvență Ponderată (fără duplicări)",
-        "🥇 5. Perechi de Aur (Bazat pe Top Perechi)",
-        "🔄 6. Par-Impar Echilibrat (~50/50)",
-        "🗺️ 7. Câmpuri de Forță (Minimum 3 Cadrane)",
-        "🕰️ 8. Aproape de Întoarcere (Include numere 'în vârstă')", # CORECTAT AICI
-        "⛓️ 9. Numere Consecutive (Asigură o pereche)",
-        "⭐ 10. Frecvență & Vecinătate",
-        "💡 11. Restantierul (Cold Booster)",
-        "⚖️ 12. Somă Medie (Selecție Ponderată pe Suma Optimă)",
-        "🧬 13. Adâncimea Istoriei (Aderență la ultimele 50 de runde)",
-        "🧪 14. Mix Strategy (Combinație aleatorie a strategiilor)",
-    ]
-)
+# Lista completa de strategii (acum ca un dicționar pentru a păstra ordinea)
+ALL_STRATEGIES = {
+    "🎯 Standard (numere aleatoare din Top N)": "standard",
+    "🔥 Hot Numbers (3 din top 10 + rest aleatoriu)": "hot_numbers",
+    "❄️ Cold-Hot Hybrid (jumătate top 20, jumătate rest)": "cold_hot_hybrid",
+    "⚡ Frecvență Ponderată (fără duplicări)": "weighted_frequency",
+    "🥇 Perechi de Aur (Bazat pe Top Perechi)": "golden_pairs",
+    "🔄 Par-Impar Echilibrat (~50/50)": "parity_balance",
+    "🗺️ Câmpuri de Forță (Minimum 3 Cadrane)": "quadrant_force",
+    "🕰️ Aproape de Întoarcere (Include numere 'în vârstă')": "return_age",
+    "⛓️ Numere Consecutive (Asigură o pereche)": "consecutive_pair",
+    "⭐ Frecvență & Vecinătate": "frequency_neighbors",
+    "💡 Restantierul (Cold Booster)": "cold_booster",
+    "⚖️ Somă Medie (Selecție Ponderată pe Suma Optimă)": "average_sum_weighted",
+    "🧬 Adâncimea Istoriei (Aderență la ultimele 50 de runde)": "history_adherence",
+    "🧪 Mix Strategy (Combinație aleatorie a strategiilor)": "mix_strategy",
+}
+
+st.subheader("☑️ Selectează Strategiile de Generare")
+col_a, col_b = st.columns(2)
+
+selected_strategies_keys = []
+strategy_items = list(ALL_STRATEGIES.items())
+
+for i, (label, key) in enumerate(strategy_items):
+    if i < len(strategy_items) / 2:
+        with col_a:
+            if st.checkbox(label, key=f"strat_{key}"):
+                selected_strategies_keys.append(key)
+    else:
+        with col_b:
+            if st.checkbox(label, key=f"strat_{key}"):
+                selected_strategies_keys.append(key)
+
+st.session_state.selected_strategies = selected_strategies_keys
 
 # --- Funcție Ajutătoare pentru Frecvență Ponderată Fără Duplicări ---
 def weighted_sample_unique(population, weights, k):
@@ -260,19 +279,193 @@ def weighted_sample_unique(population, weights, k):
         if len(available) == 0:
             break
         if sum(current_weights) <= 0:
-            # Daca ponderea e zero, revenim la random.sample pe ce a ramas
             sample.extend(random.sample(available, k - len(sample)))
             break
             
         chosen = random.choices(available, weights=current_weights, k=1)[0]
         sample.append(chosen)
 
-        # Scoatem elementul ales si refacem listele
         idx = available.index(chosen)
         available.pop(idx)
         current_weights.pop(idx)
         
     return sample
+
+# --- Functie pentru generarea variantei pe baza strategiei ---
+def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_numbers, max_num, q1, q3, historic_rounds_set, cold_data, top_pairs, quadrants, cold_candidates):
+    
+    variant = []
+
+    if strategy_key == "standard":
+        variant = random.sample(top_nums, variant_size)
+
+    elif strategy_key == "hot_numbers":
+        top10 = top_nums[:10]; rest = top_nums[10:]
+        variant = random.sample(top10, min(3, variant_size)) + random.sample(rest, max(variant_size-3, 0))
+
+    elif strategy_key == "cold_hot_hybrid":
+        half = variant_size // 2
+        top20 = top_nums[:20]; rest = top_nums[20:]
+        variant = random.sample(top20, min(half, len(top20))) + random.sample(rest, variant_size - half)
+
+    elif strategy_key == "weighted_frequency":
+        weights = [st.session_state.frequency.get(n, 1) for n in top_nums]
+        variant = weighted_sample_unique(top_nums, weights, variant_size)
+
+    elif strategy_key == "golden_pairs":
+        if top_pairs:
+            num_pairs = min(random.randint(1, 2), variant_size // 2)
+            chosen_pairs = random.sample(top_pairs, num_pairs)
+            variant_set = set()
+            for pair in chosen_pairs:
+                variant_set.update(pair)
+                
+            num_left = variant_size - len(variant_set)
+            if num_left > 0:
+                available_rest = [n for n in top_nums if n not in variant_set]
+                variant_set.update(random.sample(available_rest, min(num_left, len(available_rest))))
+            variant = list(variant_set)
+        else:
+            variant = random.sample(top_nums, variant_size)
+
+    elif strategy_key == "parity_balance":
+        num_par = variant_size // 2
+        num_impar = variant_size - num_par
+        par_nums = [n for n in top_nums if n % 2 == 0]
+        impar_nums = [n for n in top_nums if n % 2 != 0]
+        
+        variant_set = set(random.sample(par_nums, min(num_par, len(par_nums))))
+        variant_set.update(random.sample(impar_nums, min(num_impar, len(impar_nums))))
+        variant = list(variant_set)
+
+    elif strategy_key == "quadrant_force":
+        variant_set = set()
+        num_quads = min(random.randint(3, 4), variant_size, len(quadrants))
+        chosen_quadrants = random.sample(quadrants, num_quads)
+        
+        for q in chosen_quadrants:
+            available_in_q = list(q.intersection(set(top_nums)))
+            if available_in_q and len(variant_set) < variant_size:
+                variant_set.add(random.choice([n for n in available_in_q if n not in variant_set]))
+                
+        num_left = variant_size - len(variant_set)
+        if num_left > 0:
+            available_rest = [n for n in top_nums if n not in variant_set]
+            variant_set.update(random.sample(available_rest, min(num_left, len(available_rest))))
+        variant = list(variant_set)
+
+    elif strategy_key == "return_age":
+        cold_age_candidates = [num for num, age in cold_data.items() if age > 5 and num not in top_nums and num not in exclude_numbers]
+        
+        num_cold_include = min(random.randint(1, 2), variant_size, len(cold_age_candidates))
+        cold_part = random.sample(cold_age_candidates, num_cold_include)
+        
+        num_hot = variant_size - len(cold_part)
+        available_hot = [n for n in top_nums if n not in cold_part]
+        hot_part = random.sample(available_hot, min(num_hot, len(available_hot)))
+        
+        variant = cold_part + hot_part
+
+    elif strategy_key == "consecutive_pair":
+        consecutive_pair = None
+        random.shuffle(top_nums)
+        for n in top_nums:
+            if n + 1 in top_nums:
+                consecutive_pair = (n, n+1)
+                break
+        
+        if consecutive_pair and variant_size >= 2:
+            variant_set = set(consecutive_pair)
+            num_left = variant_size - 2
+            available_rest = [n for n in top_nums if n not in variant_set]
+            variant_set.update(random.sample(available_rest, min(num_left, len(available_rest))))
+            variant = list(variant_set)
+        else:
+             variant = random.sample(top_nums, variant_size)
+
+    elif strategy_key == "frequency_neighbors":
+        top5 = top_nums[:5]
+        start_num = random.choice(top5)
+        variant_set = {start_num}
+        
+        top15 = top_nums[:15]
+        neighbors = set()
+        for n in top15:
+            if n - 1 >= 1 and n - 1 not in exclude_numbers: neighbors.add(n - 1)
+            if n + 1 <= max_num and n + 1 not in exclude_numbers: neighbors.add(n + 1)
+        
+        combined_pool = list(set(top_nums[1:]).union(neighbors) - variant_set)
+        
+        num_left = variant_size - 1
+        variant_set.update(random.sample(combined_pool, min(num_left, len(combined_pool))))
+        variant = list(variant_set)
+
+    elif strategy_key == "cold_booster":
+        num_cold_include = min(random.randint(1, 2), variant_size, len(cold_candidates))
+        cold_part = random.sample(cold_candidates, num_cold_include)
+        
+        num_hot = variant_size - len(cold_part)
+        available_hot = [n for n in top_nums if n not in cold_part]
+        hot_part = random.sample(available_hot, min(num_hot, len(available_hot)))
+        
+        variant = cold_part + hot_part
+
+    elif strategy_key == "average_sum_weighted":
+        target_sum = (q1 + q3) / 2
+        best_variant = []
+        best_sum_diff = float('inf')
+        
+        for _ in range(10): # 10 sub-incercari
+            weights = [st.session_state.frequency.get(n, 1) for n in top_nums]
+            temp_variant = weighted_sample_unique(top_nums, weights, variant_size)
+            current_sum = sum(temp_variant)
+            current_diff = abs(current_sum - target_sum)
+            
+            if current_diff < best_sum_diff and len(temp_variant) == variant_size:
+                best_sum_diff = current_diff
+                best_variant = temp_variant
+                
+        variant = best_variant if best_variant and len(best_variant) == variant_size else random.sample(top_nums, variant_size)
+
+    elif strategy_key == "history_adherence":
+        num_common = min(random.randint(3, 4), variant_size)
+        
+        if st.session_state.historic_rounds:
+            parent_round = random.choice(st.session_state.historic_rounds[-min(50, len(st.session_state.historic_rounds)):])
+            hot_parent_intersection = [n for n in parent_round if n in top_nums]
+            
+            parent_part = random.sample(hot_parent_intersection, min(num_common, len(hot_parent_intersection)))
+            variant_set = set(parent_part)
+            
+            num_left = variant_size - len(variant_set)
+            available_rest = [n for n in top_nums if n not in variant_set]
+            
+            variant_set.update(random.sample(available_rest, min(num_left, len(available_rest))))
+            variant = list(variant_set)
+        else:
+            variant = random.sample(top_nums, variant_size)
+
+    elif strategy_key == "mix_strategy":
+        # Alege aleatoriu între strategiile 1, 2, 4, 6, 9
+        mix_choices = [
+            lambda: generate_variant_by_strategy("standard", top_nums, variant_size, exclude_numbers, max_num, q1, q3, historic_rounds_set, cold_data, top_pairs, quadrants, cold_candidates),
+            lambda: generate_variant_by_strategy("hot_numbers", top_nums, variant_size, exclude_numbers, max_num, q1, q3, historic_rounds_set, cold_data, top_pairs, quadrants, cold_candidates),
+            lambda: generate_variant_by_strategy("weighted_frequency", top_nums, variant_size, exclude_numbers, max_num, q1, q3, historic_rounds_set, cold_data, top_pairs, quadrants, cold_candidates),
+            lambda: generate_variant_by_strategy("parity_balance", top_nums, variant_size, exclude_numbers, max_num, q1, q3, historic_rounds_set, cold_data, top_pairs, quadrants, cold_candidates),
+            lambda: generate_variant_by_strategy("consecutive_pair", top_nums, variant_size, exclude_numbers, max_num, q1, q3, historic_rounds_set, cold_data, top_pairs, quadrants, cold_candidates),
+        ]
+        
+        # Extrage si filtreaza rezultatul pentru a evita liste imbricate
+        mixed_result = random.choice(mix_choices)()
+        variant = [item for sublist in (mixed_result if isinstance(mixed_result, list) else [mixed_result]) for item in (sublist if isinstance(sublist, list) else [sublist]) if isinstance(item, int)]
+
+    # Asigură-te că varianta are dimensiunea corectă înainte de return
+    if len(variant) != variant_size:
+        # Fallback dacă o strategie a eșuat să producă mărimea corectă
+        variant = random.sample(top_nums, variant_size)
+        
+    return variant
+
 
 # --- Generare Logică Principală ---
 if st.button("🚀 Generează variante și aplică filtrele de calitate"):
@@ -280,221 +473,50 @@ if st.button("🚀 Generează variante și aplică filtrele de calitate"):
         st.error("❌ Încarcă datele și configurează filtrele în Secțiunile 1 & 2.")
     elif variant_size > len(st.session_state.top_numbers):
         st.error(f"❌ Mărimea variantei ({variant_size}) este mai mare decât numerele disponibile ({len(st.session_state.top_numbers)}). Ajustează.")
+    elif not st.session_state.selected_strategies:
+        st.error("❌ Te rugăm să selectezi cel puțin o strategie de generare.")
     else:
         top_nums = st.session_state.top_numbers
         variants = set()
         max_attempts = num_variants * 50
         attempts = 0
         
-        # Date pentru strategii avansate
+        # Date pentru strategii avansate (transmise functiei)
         max_num = st.session_state.max_number
         q1, q3 = st.session_state.sum_range
         historic_rounds_set = [set(r) for r in st.session_state.historic_rounds]
-        
-        # Cold Candidates (pentru Restantierul)
         cold_data = analyze_cold_streak(st.session_state.historic_rounds, max_num)
         cold_candidates = [num for num, age in cold_data.items() if num not in top_nums and num not in exclude_numbers]
-        
-        # Perechi de aur
-        top_pairs = list(st.session_state.pair_frequency.keys())[:100] # Top 100 de perechi
-        
-        # Cadrane (pentru strategia 7)
+        top_pairs = list(st.session_state.pair_frequency.keys())[:100]
         q_size = max_num // 4
-        quadrants = [
-            set(range(1, q_size + 1)),
-            set(range(q_size + 1, q_size * 2 + 1)),
-            set(range(q_size * 2 + 1, q_size * 3 + 1)),
-            set(range(q_size * 3 + 1, max_num + 1))
-        ]
+        quadrants = [set(range(1, q_size + 1)), set(range(q_size + 1, q_size * 2 + 1)), set(range(q_size * 2 + 1, q_size * 3 + 1)), set(range(q_size * 3 + 1, max_num + 1))]
+        
+        strategies_to_use = st.session_state.selected_strategies
+        num_strategies = len(strategies_to_use)
+        
+        variants_per_strategy = num_variants // num_strategies if num_strategies > 0 else 0
         
         while len(variants) < num_variants and attempts < max_attempts:
             attempts += 1
-            variant = []
             
-            # --- 3.1. Logica de Generare Specifică Strategiei ---
+            # Alege o strategie din cele selectate in mod echilibrat
+            strategy_key = strategies_to_use[attempts % num_strategies]
             
-            # --- Strategii Existente (1-5) ---
-            if strategy == "🎯 1. Standard (numere aleatoare din Top N)":
-                variant = random.sample(top_nums, variant_size)
-
-            elif strategy == "🔥 2. Hot Numbers (3 din top 10 + rest aleatoriu)":
-                top10 = top_nums[:10]; rest = top_nums[10:]
-                variant = random.sample(top10, min(3, variant_size)) + random.sample(rest, max(variant_size-3, 0))
-
-            elif strategy == "❄️ 3. Cold-Hot Hybrid (jumătate top 20, jumătate rest)":
-                half = variant_size // 2
-                top20 = top_nums[:20]; rest = top_nums[20:]
-                variant = random.sample(top20, min(half, len(top20))) + random.sample(rest, variant_size - half)
-
-            elif strategy == "⚡ 4. Frecvență Ponderată (fără duplicări)":
-                weights = [st.session_state.frequency.get(n, 1) for n in top_nums]
-                variant = weighted_sample_unique(top_nums, weights, variant_size)
-
-            elif strategy == "🥇 5. Perechi de Aur (Bazat pe Top Perechi)":
-                if top_pairs:
-                    num_pairs = min(random.randint(1, 2), variant_size // 2)
-                    chosen_pairs = random.sample(top_pairs, num_pairs)
-                    variant_set = set()
-                    for pair in chosen_pairs:
-                        variant_set.update(pair)
-                        
-                    num_left = variant_size - len(variant_set)
-                    if num_left > 0:
-                        available_rest = [n for n in top_nums if n not in variant_set]
-                        variant_set.update(random.sample(available_rest, min(num_left, len(available_rest))))
-                    variant = list(variant_set)
-                else:
-                    variant = random.sample(top_nums, variant_size) # Fallback
-
-            # --- Strategii Noi (6-14) ---
-            elif strategy == "🔄 6. Par-Impar Echilibrat (~50/50)":
-                num_par = variant_size // 2
-                num_impar = variant_size - num_par
-                par_nums = [n for n in top_nums if n % 2 == 0]
-                impar_nums = [n for n in top_nums if n % 2 != 0]
-                
-                # Asiguram ca numerele sunt unice si avem destule
-                variant_set = set(random.sample(par_nums, min(num_par, len(par_nums))))
-                variant_set.update(random.sample(impar_nums, min(num_impar, len(impar_nums))))
-                variant = list(variant_set)
-
-            elif strategy == "🗺️ 7. Câmpuri de Forță (Minimum 3 Cadrane)":
-                variant_set = set()
-                
-                # Asigura min 3 cadrane (sau cate putem)
-                num_quads = min(random.randint(3, 4), variant_size, len(quadrants))
-                chosen_quadrants = random.sample(quadrants, num_quads)
-                
-                for q in chosen_quadrants:
-                    available_in_q = list(q.intersection(set(top_nums)))
-                    if available_in_q and len(variant_set) < variant_size:
-                        # Ia un singur numar din fiecare cadran ales
-                        variant_set.add(random.choice([n for n in available_in_q if n not in variant_set]))
-                        
-                # Completeaza restul aleatoriu din top_nums
-                num_left = variant_size - len(variant_set)
-                if num_left > 0:
-                    available_rest = [n for n in top_nums if n not in variant_set]
-                    variant_set.update(random.sample(available_rest, min(num_left, len(available_rest))))
-                variant = list(variant_set)
-
-            elif strategy == "🕰️ 8. Aproape de Întoarcere (Include numere 'în vârstă')":
-                # Include 1-2 numere din cele mai reci care au o varsta (nu sunt cele mai rare, dar nu au iesit recent)
-                cold_age_candidates = [num for num, age in cold_data.items() if age > 5 and num not in top_nums and num not in exclude_numbers]
-                
-                num_cold_include = min(random.randint(1, 2), variant_size, len(cold_age_candidates))
-                
-                cold_part = random.sample(cold_age_candidates, num_cold_include)
-                
-                num_hot = variant_size - len(cold_part)
-                available_hot = [n for n in top_nums if n not in cold_part]
-                hot_part = random.sample(available_hot, min(num_hot, len(available_hot)))
-                
-                variant = cold_part + hot_part
-
-            elif strategy == "⛓️ 9. Numere Consecutive (Asigură o pereche)":
-                # Gasim o pereche consecutiva valida in top_nums
-                consecutive_pair = None
-                random.shuffle(top_nums)
-                for n in top_nums:
-                    if n + 1 in top_nums:
-                        consecutive_pair = (n, n+1)
-                        break
-                
-                if consecutive_pair and variant_size >= 2:
-                    variant_set = set(consecutive_pair)
-                    num_left = variant_size - 2
-                    available_rest = [n for n in top_nums if n not in variant_set]
-                    variant_set.update(random.sample(available_rest, min(num_left, len(available_rest))))
-                    variant = list(variant_set)
-                else:
-                     variant = random.sample(top_nums, variant_size) # Fallback standard
-
-            elif strategy == "⭐ 10. Frecvență & Vecinătate":
-                # Alege primul număr din Top 5 Hot
-                top5 = top_nums[:5]
-                start_num = random.choice(top5)
-                variant_set = {start_num}
-                
-                # Defineste vecinatatea (N-1, N+1) pentru top 15
-                top15 = top_nums[:15]
-                neighbors = set()
-                for n in top15:
-                    if n - 1 >= 1 and n - 1 not in exclude_numbers: neighbors.add(n - 1)
-                    if n + 1 <= max_num and n + 1 not in exclude_numbers: neighbors.add(n + 1)
-                
-                # Combina numerele hot ramase cu vecinii
-                combined_pool = list(set(top_nums[1:]).union(neighbors) - variant_set)
-                
-                num_left = variant_size - 1
-                variant_set.update(random.sample(combined_pool, min(num_left, len(combined_pool))))
-                variant = list(variant_set)
-                
-            elif strategy == "💡 11. Restantierul (Cold Booster)":
-                # Asigura includerea a 1-2 numere care au fost excluse de filtrul de "rece" (dar nu interzise manual)
-                
-                num_cold_include = min(random.randint(1, 2), variant_size, len(cold_candidates))
-                cold_part = random.sample(cold_candidates, num_cold_include)
-                
-                num_hot = variant_size - len(cold_part)
-                available_hot = [n for n in top_nums if n not in cold_part]
-                hot_part = random.sample(available_hot, min(num_hot, len(available_hot)))
-                
-                variant = cold_part + hot_part
-                
-            elif strategy == "⚖️ 12. Somă Medie (Selecție Ponderată pe Suma Optimă)":
-                # Incearca sa genereze o varianta cu o suma apropiata de media optima (Q25+Q75)/2
-                target_sum = (q1 + q3) / 2
-                best_variant = []
-                best_sum_diff = float('inf')
-                
-                # Ruleaza o selectie aleatoare, dar cu ponderi (standard) si pastreaza ce e mai aproape de suma tinta
-                for _ in range(10): # 10 sub-incercari
-                    weights = [st.session_state.frequency.get(n, 1) for n in top_nums]
-                    temp_variant = weighted_sample_unique(top_nums, weights, variant_size)
-                    current_sum = sum(temp_variant)
-                    current_diff = abs(current_sum - target_sum)
-                    
-                    if current_diff < best_sum_diff and len(temp_variant) == variant_size:
-                        best_sum_diff = current_diff
-                        best_variant = temp_variant
-                        
-                variant = best_variant if best_variant and len(best_variant) == variant_size else random.sample(top_nums, variant_size)
-                
-            elif strategy == "🧬 13. Adâncimea Istoriei (Aderență la ultimele 50 de runde)":
-                
-                num_common = min(random.randint(3, 4), variant_size) # Numar de numere comune tinta
-                
-                if st.session_state.historic_rounds:
-                    # Alege o runda "parent" din ultimele 50 (sau cat avem)
-                    parent_round = random.choice(st.session_state.historic_rounds[-min(50, len(st.session_state.historic_rounds)):])
-                    
-                    # Pastreaza num_common numere din runda parent
-                    hot_parent_intersection = [n for n in parent_round if n in top_nums]
-                    
-                    parent_part = random.sample(hot_parent_intersection, min(num_common, len(hot_parent_intersection)))
-                    variant_set = set(parent_part)
-                    
-                    # Completeaza restul din top_nums
-                    num_left = variant_size - len(variant_set)
-                    available_rest = [n for n in top_nums if n not in variant_set]
-                    
-                    variant_set.update(random.sample(available_rest, min(num_left, len(available_rest))))
-                    variant = list(variant_set)
-                else:
-                    variant = random.sample(top_nums, variant_size) # Fallback standard
-
-            else:  # 🧪 14. Mix Strategy (Combinație aleatorie)
-                # Alege aleatoriu între strategiile 1, 2, 4, 6, 9
-                mix_choices = [
-                    lambda: random.sample(top_nums, variant_size), # 1. Standard
-                    lambda: random.sample(top_nums[:10], min(3, variant_size)) + random.sample(top_nums[10:], max(variant_size-3, 0)), # 2. Hot
-                    lambda: weighted_sample_unique(top_nums, [st.session_state.frequency.get(n, 1) for n in top_nums], variant_size), # 4. Ponderata
-                    lambda: [n for n in random.sample([n for n in top_nums if n % 2 == 0], variant_size // 2) + random.sample([n for n in top_nums if n % 2 != 0], variant_size - (variant_size // 2))], # 6. Par/Impar
-                ]
-                variant = random.choice(mix_choices)()
+            variant = generate_variant_by_strategy(
+                strategy_key, 
+                top_nums, 
+                variant_size, 
+                exclude_numbers, 
+                max_num, 
+                q1, q3, 
+                historic_rounds_set, 
+                cold_data, 
+                top_pairs, 
+                quadrants, 
+                cold_candidates
+            )
             
-            # --- 3.2. Filtre de Calitate (Se aplică TOATE variantelor generate) ---
+            # --- Filtre de Calitate (Se aplică TOATE variantelor generate) ---
 
             # Filtru 1: Unicitate și mărime
             if len(set(variant)) != variant_size:
@@ -505,7 +527,6 @@ if st.button("🚀 Generează variante și aplică filtrele de calitate"):
                 continue 
             
             # Filtru 3: Verificare de Aderență la Istoric (Nearness to History)
-            # Asiguram ca varianta are minim 2 numere comune cu ultimele 10 runde
             if st.session_state.historic_rounds:
                 is_close_to_history = False
                 last_10_rounds = historic_rounds_set[-min(10, len(historic_rounds_set)):]
@@ -522,7 +543,7 @@ if st.button("🚀 Generează variante și aplică filtrele de calitate"):
         st.session_state.variants = list(variants)
         random.shuffle(st.session_state.variants)
 
-        st.success(f"✅ Generate **{len(st.session_state.variants)}** variante UNICE ({variant_size}/{variant_size}) în {attempts} încercări.")
+        st.success(f"✅ Generate **{len(st.session_state.variants)}** variante UNICE ({variant_size}/{variant_size}) în {attempts} încercări, folosind strategiile: **{', '.join([k for k, v in ALL_STRATEGIES.items() if v in strategies_to_use])}**")
         if len(st.session_state.variants) < num_variants:
              st.warning(f"⚠️ Nu s-au putut genera {num_variants} variante unice după aplicarea filtrelor de calitate. Au rămas {len(st.session_state.variants)}.")
 
