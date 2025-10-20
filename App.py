@@ -25,7 +25,6 @@ if "frequency" not in st.session_state:
     st.session_state.frequency = {}
 if "historic_rounds" not in st.session_state:
     st.session_state.historic_rounds = []
-# Sumele optime sunt păstrate doar pentru afișare informativă, dar NU mai restricționează
 if "sum_range" not in st.session_state:
     st.session_state.sum_range = (0, 1000) 
 if "max_number" not in st.session_state:
@@ -138,7 +137,7 @@ def weighted_sample_unique(population, weights, k):
         
     return sample
 
-# Filtru Relaxat (doar unicitate) - S-au scos parametrii de sumă
+# Filtru Relaxat (doar unicitate)
 def is_valid_variant(variant): 
     variant_size = len(variant)
     variant_set = set(variant)
@@ -441,4 +440,10 @@ def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_n
         return variant
 
     if strategy_key == "consecutive_pair":
-        # Numere Consecutive (Asigu
+        # Numere Consecutive (Asigură o pereche)
+        n = random.choice(base_pool)
+        n_plus_1 = n + 1
+        
+        variant = [n]
+        
+     
