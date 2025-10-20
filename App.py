@@ -133,7 +133,6 @@ def is_valid_variant(variant, max_num):
 def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_numbers, max_num, cold_data, top_pairs, top_triplets, cold_candidates, historic_rounds, avg_reps, use_triplets):
     if len(top_nums) < variant_size: return []
     
-    # Numerele din frecvența istorică totală (folosită pentru a defini straturile)
     all_numbers_with_freq = st.session_state.frequency
     sorted_freq_keys = list(st.session_state.frequency.keys())
     
@@ -142,52 +141,50 @@ def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_n
     # ------------------------------------------------------------------
     if strategy_key == "stratified_mix":
         if variant_size != 4:
-            # Dacă mărimea nu e 4, revenim la tragere simplă ponderată pentru a nu bloca generarea
-            st.warning(f"Strategia stratificată necesită k=4. Se folosește tragere ponderată pentru k={variant_size}.")
+            # Dacă mărimea nu e 4, revenim la tragere simplă ponderată
             strategy_key = "weighted_frequency"
         
+        elif len(sorted_freq_keys) < 25:
+             # Nu sunt suficiente numere unice în istoric pentru a defini straturile
+             strategy_key = "weighted_frequency"
+
         else:
             variant = []
             
-            # 1. Pool Top 15
-            pool_15 = set(sorted_freq_keys[:15])
-            # 2. Pool Top 20 (fără Top 15)
-            pool_20 = set(sorted_freq_keys[:20]) - pool_15
-            # 3. Pool Top 25 (fără Top 20)
-            pool_25 = set(sorted_freq_keys[:25]) - set(sorted_freq_keys[:20])
-            # 4. Restul numerelor disponibile (peste 25)
-            pool_rest = set(top_nums) - (pool_15 | pool_20 | pool_25)
+            # Definirea straturilor exclusive
+            pool_15 = set(sorted_freq_keys[:15])                           # Top 1 - 15
+            pool_16_20 = set(sorted_freq_keys[15:20])                     # Locurile 16 - 20
+            pool_21_25 = set(sorted_freq_keys[20:25])                     # Locurile 21 - 25
             
-            # Asigurăm că pool-urile au cel puțin un număr
-            if not pool_15 or not pool_20 or not pool_25 or not pool_rest:
-                 # Dacă nu putem forma straturile (setul top_nums e prea mic), revenim la ponderare
-                 st.warning("Setul de numere este prea mic pentru a aplica strategia stratificată strict. Se folosește tragere ponderată.")
+            # Restul: Numerele disponibile în Top N, care NU sunt în Top 25
+            all_top_n_set = set(top_nums)
+            pool_rest = all_top_n_set - (pool_15 | pool_16_20 | pool_21_25)
+            
+            # Verificare minimă a pool-urilor necesare
+            if not pool_15 or not pool_16_20 or not pool_21_25 or not pool_rest:
+                 st.warning("Setul de numere 'Top N' sau frecvența nu permit crearea celor 4 straturi distincte. Se folosește tragere ponderată.")
                  strategy_key = "weighted_frequency"
             else:
-                # Extragem câte un număr din fiecare strat (fără ponderare pentru simplificare)
+                # Extragem câte un număr din fiecare strat distinct (pentru a garanta diversitatea)
                 
-                # Locul 1: Top 15
+                # Locul 1: Top 15 (Selectează din cel mai fierbinte strat)
                 num1 = random.choice(list(pool_15))
                 variant.append(num1)
                 
-                # Locul 2: Top 20
-                pool_20.discard(num1)
-                num2 = random.choice(list(pool_20))
+                # Locul 2: Top 16-20 (Selectează din stratul fierbinte secundar)
+                # Notă: Trebuie să ne asigurăm că nu este același număr, dar pool-urile sunt deja exclusive (pool_15 nu e in pool_16_20)
+                num2 = random.choice(list(pool_16_20))
                 variant.append(num2)
                 
-                # Locul 3: Top 25
-                pool_25.discard(num1)
-                pool_25.discard(num2)
-                num3 = random.choice(list(pool_25))
+                # Locul 3: Top 21-25 (Selectează din stratul median)
+                num3 = random.choice(list(pool_21_25))
                 variant.append(num3)
                 
-                # Locul 4: Restul
-                pool_rest.discard(num1)
-                pool_rest.discard(num2)
-                pool_rest.discard(num3)
+                # Locul 4: Restul (Selectează din cele mai reci/medii rămase)
                 num4 = random.choice(list(pool_rest))
                 variant.append(num4)
                 
+                # Am extras 4 numere din 4 seturi disjuncte, deci sunt automat unice.
                 return list(set(variant))
     
     # ------------------------------------------------------------------
@@ -198,7 +195,7 @@ def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_n
     if strategy_key == "standard":
         variant = random.sample(top_nums, variant_size)
         
-    # 2. Ponderată (inclusiv cazul în care "stratified_mix" a eșuat sau altă strategie a fost aleasă)
+    # 2. Ponderată (inclusiv cazul în care "stratified_mix" a eșuat)
     else:
         general_weights = [all_numbers_with_freq.get(n, 1) for n in top_nums]
         if not general_weights or sum(general_weights) <= 0:
@@ -226,7 +223,7 @@ with col_size:
         "📏 Alege mărimea variantei (k/k, ex: 5/5, 8/8)",
         min_value=1, 
         max_value=9, 
-        value=4, # Setat pe 4 pentru testarea strategiei noi
+        value=4, 
         step=1
     )
     if variant_size < 2:
@@ -363,7 +360,7 @@ ALL_STRATEGIES = {
     "🧲 Atracția Vestică (Low Numbers Gravitation)": "low_numbers_gravitation",
     "📅 Repetiție Zonală (Last Round Quadrant Mirroring)": "quadrant_mirroring",
     "🔄 Aderență Forțată la Runda Precedentă (Repetiții Istorice)": "forced_repetitions",
-    "📈 Stratificată (Top 15/20/25 + Rest, doar pentru 4/4)": "stratified_mix", # Noua strategie
+    "📈 Stratificată (Top 15/16-20/21-25 + Rest, doar pentru 4/4)": "stratified_mix", 
 }
 
 st.subheader("☑️ Selectează Strategiile de Generare")
