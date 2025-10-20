@@ -11,7 +11,7 @@ st.title("🎯 Generator Variante Keno Avansat & Ultra-Eficient")
 
 st.markdown("""
 Analiză statistică multi-nivel (frecvență, perechi, sumă, istoric) pentru a genera variante loto
-cu eficiență sporită. Toate variantele sunt filtrate strict pentru a respecta tiparele statistice de bază.
+cu eficiență sporită. **Toate variantele sunt filtrate strict** pentru a respecta tiparele statistice de bază.
 """)
 
 # --- Session State Initialization ---
@@ -38,7 +38,7 @@ if "avg_reps" not in st.session_state:
 if "generation_ran" not in st.session_state: 
     st.session_state.generation_ran = False 
 
-# --- Funcții Avansate de Analiză ---
+# --- Funcții Avansate de Analiză (FĂRĂ MODIFICĂRI DE LOGICĂ) ---
 
 def analyze_pairs_triplets(rounds, k_size):
     pair_counts = Counter()
@@ -319,7 +319,7 @@ with col_comb:
         use_triplets = False
 
 
-# Aici am corectat sintaxa din imaginea 1000226552.jpg
+# Corecție: Am folosit ghilimele simple ('') pentru textul interior
 ALL_STRATEGIES = {
     "🎯 Standard (Aleatoriu Ponderat)": "standard", 
     "🔥 Hot Numbers (3 din top 10 + rest ponderat)": "hot_numbers", 
@@ -328,7 +328,7 @@ ALL_STRATEGIES = {
     "🥇 Perechi/Triplete de Aur (Bază Combinatorie + Rest din Top N)": "golden_pairs",
     "🔄 Par-Impar Echilibrat (Generare Forțată)": "parity_balance",
     "🗺️ Câmpuri de Forță (Minimum 3 Cadrane)": "quadrant_force",
-    "🕰️ Aproape de Întoarcere (Include numere 'în vârstă')": "return_age", # Corecție: Ghilimele simple au fost folosite pentru 'în vârstă'
+    "🕰️ Aproape de Întoarcere (Include numere 'în vârstă')": "return_age", 
     "⛓️ Numere Consecutive (Asigură o pereche)": "consecutive_pair",
     "⭐ Frecvență & Vecinătate": "frequency_neighbors",
     "💡 Restantierul (Cold Booster)": "cold_booster",
@@ -363,15 +363,14 @@ def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_n
     general_weights = [st.session_state.frequency.get(n, 1) for n in top_nums]
     variant_set = set()
 
-    # Logica de generare (Simplificată pentru a evita repetarea codului, dar funcțională)
-    if strategy_key == "standard" or not general_weights or sum(general_weights) == 0:
+    # Logica de generare (Simplificată pentru a evita repetarea codului)
+    if not general_weights or sum(general_weights) == 0 or strategy_key == "standard":
         variant = random.sample(top_nums, variant_size)
-        variant_set.update(variant)
     else:
         # Folosim extragerea ponderată pentru majoritatea strategiilor
         variant = weighted_sample_unique(top_nums, general_weights, variant_size)
-        variant_set.update(variant)
         
+    variant_set.update(variant)
     
     return list(variant_set)
 
@@ -393,7 +392,6 @@ if st.button("🚀 Generează variante"):
         max_attempts = num_variants * 100
         attempts = 0
         
-        # Re-inițializăm variabilele necesare
         max_num = st.session_state.max_number
         q1, q3 = st.session_state.sum_range
         cold_data = analyze_cold_streak(st.session_state.historic_rounds, max_num)
@@ -428,8 +426,7 @@ if st.button("🚀 Generează variante"):
         if len(st.session_state.variants) > 0:
             st.success(f"✅ Generate **{len(st.session_state.variants)}** variante UNICE ({variant_size}/{variant_size}) din {num_variants} dorite, în {attempts} încercări, folosind strategiile: **{', '.join(selected_strategy_labels)}**")
         else:
-             st.error(f"❌ Nu s-a putut genera nicio variantă unică după aplicarea filtrelor de calitate. Încercări totale: {attempts}.")
-             st.info("Sugestie: Încearcă să relaxezi filtrele în Secțiunea 2 (păstrează mai multe numere fierbinți) sau să dezactivezi temporar strategii foarte restrictive.")
+             st.error(f"❌ Nu s-a putut genera nicio variantă unică după aplicarea filtrelor de calitate. Încercări totale: {attempts}. **Sugestie: Relaxează filtrele din Secțiunea 2 sau dezactivează strategiile restrictive.**")
 
 
 st.markdown("---")
@@ -476,9 +473,8 @@ if st.session_state.generation_ran:
         txt_output = "\n".join(export_lines)
         
     else: # FALLBACK de export pentru 0 variante
-        # Aici am corectat eroarea de sintaxă din imaginea 1000226626.jpg
-        txt_output = f"Nu s-a putut genera nicio variantă validă după {attempts} încercări, din cauza filtrelor de calitate (Sumă, Par/Impar, Consecutivitate) și a setului restrâns de numere fierbinți. Te rugăm să relaxezi filtrele."
+        txt_output = f"Nu s-a putut genera nicio variantă validă după {attempts} încercări. Revizuiți filtrele de calitate și selecția de numere fierbinți."
         st.warning("⚠️ Fișierul de export va conține doar un mesaj de eroare, deoarece nu s-au putut genera variante unice.")
 
 
-    st.download_button("⬇️ Descarcă variantele (CSV/TXT)", txt_output, "variante_generate_eficient
+    st.download_button("⬇️ Descarcă variantele (CSV/TXT)", txt_output, "variante_generate_eficient.csv", "text/csv")
