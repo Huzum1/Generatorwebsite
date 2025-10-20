@@ -36,6 +36,7 @@ if "history_depth" not in st.session_state:
 if "avg_reps" not in st.session_state:
     st.session_state.avg_reps = 0
 if "generation_ran" not in st.session_state: 
+    # VARIABILA CRITICĂ: se setează la True după prima apăsare a butonului de generare.
     st.session_state.generation_ran = False 
 
 # --- Funcții Avansate de Analiză (FĂRĂ MODIFICĂRI DE LOGICĂ) ---
@@ -329,6 +330,7 @@ if st.button("🚀 Generează variante"):
     elif not st.session_state.selected_strategies:
         st.error("❌ Te rugăm să selectezi cel puțin o strategie de generare.")
     else:
+        # ASIGURĂM CĂ SECȚIUNEA DE EXPORT VA APARE
         st.session_state.generation_ran = True 
 
         top_nums = st.session_state.top_numbers
@@ -380,14 +382,15 @@ if st.button("🚀 Generează variante"):
 
 st.markdown("---")
 
-# --- Secțiunea 4: Preview & Export (Export cu ID și Variante) ---
+# --- Secțiunea 4: Preview & Export (Secțiune afișată forțat) ---
 
 if st.session_state.generation_ran: 
     st.header("4. Preview și Export")
     
     # 1. GENERAREA OUTPUT-ULUI PENTRU PREVIEW ȘI EXPORT
     export_lines = []
-
+    
+    # Afișarea statisticilor și preview-ului
     if st.session_state.variants:
         
         generated_nums = []
