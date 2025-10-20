@@ -13,8 +13,7 @@ st.set_page_config(page_title="Generator Variante Loto Avansat", page_icon="🎯
 st.title("🎯 Generator Variante Loto Avansat & Ultra-Eficient")
 
 st.markdown("""
-Analiză statistică multi-nivel (frecvență, perechi, sumă, istoric) pentru a genera variante loto
-cu eficiență sporită.
+Analiză statistică multi-nivel (frecvență, perechi, istoric) pentru a genera variante loto.
 """)
 
 # --- Session State Initialization ---
@@ -26,6 +25,7 @@ if "frequency" not in st.session_state:
     st.session_state.frequency = {}
 if "historic_rounds" not in st.session_state:
     st.session_state.historic_rounds = []
+# Sumele optime sunt păstrate doar pentru afișare informativă, dar NU mai restricționează
 if "sum_range" not in st.session_state:
     st.session_state.sum_range = (0, 1000) 
 if "max_number" not in st.session_state:
@@ -61,6 +61,7 @@ def analyze_pairs_triplets(rounds, k_size):
     return sorted_pairs, sorted_triplets
 
 def analyze_sum(rounds):
+    # Păstrat doar pentru calculul informativ al sumei optime, nu pentru restricționare
     sums = [sum(r) for r in rounds]
     if not sums: return (0, st.session_state.max_number * 20)
     sums_df = pd.Series(sums)
@@ -113,7 +114,7 @@ def proceseaza_runde(lines, variant_size):
     st.session_state.frequency = dict(sorted_freq)
     st.session_state.historic_rounds = rounds_data
     st.session_state.pair_frequency, st.session_state.triplet_frequency = analyze_pairs_triplets(rounds_data, variant_size)
-    st.session_state.sum_range = analyze_sum(rounds_data)
+    st.session_state.sum_range = analyze_sum(rounds_data) # Păstrat doar pentru info
     st.session_state.avg_reps = analyze_repetitions(rounds_data)
     return frequency, sorted_freq, all_numbers
 
@@ -137,8 +138,8 @@ def weighted_sample_unique(population, weights, k):
         
     return sample
 
-# Filtru Relaxat (doar unicitate)
-def is_valid_variant(variant, q1, q3, max_num):
+# Filtru Relaxat (doar unicitate) - S-au scos parametrii de sumă
+def is_valid_variant(variant): 
     variant_size = len(variant)
     variant_set = set(variant)
     
@@ -206,7 +207,8 @@ if st.button("✅ Procesează rundele și rulează analiza"):
     if results is not None:
         frequency, sorted_freq, all_numbers = results
         st.success(f"✅ Analiză completă pe **{len(st.session_state.historic_rounds)}** runde.")
-        st.info(f"Suma optimă (Q25-Q75): **{st.session_state.sum_range[0]}** - **{st.session_state.sum_range[1]}** | Repetiții mediane runda N-1: **{st.session_state.avg_reps}**")
+        # AFISARE INFORMATIVA A SUMEI OPTIME, FARA A O FOLOSI CA FILTRU
+        st.info(f"Suma optimă istorică (Q25-Q75): **{st.session_state.sum_range[0]}** - **{st.session_state.sum_range[1]}** | Repetiții mediane runda N-1: **{st.session_state.avg_reps}**")
 
 
 st.markdown("---")
@@ -217,7 +219,7 @@ st.markdown("---")
 st.header("2. Configurare Filtre (Rece & Cald)")
 
 col1, col2 = st.columns(2)
-exclude_numbers = set() # Re-inițializare locală pentru a capta datele din input
+exclude_numbers = set()
 
 with col1:
     st.subheader("❄️ Exclude numere")
@@ -327,7 +329,7 @@ st.session_state.selected_strategies = selected_strategies_keys
 # ------------------------------------------------------------------------------------------------------
 # Functie pentru generarea variantei pe baza strategiei (Logica IMPLEMENTATĂ)
 # ------------------------------------------------------------------------------------------------------
-def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_numbers, max_num, q1, q3, cold_data, top_pairs, top_triplets, cold_candidates, historic_rounds, avg_reps, use_triplets):
+def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_numbers, max_num, cold_data, top_pairs, top_triplets, cold_candidates, historic_rounds, avg_reps, use_triplets):
     
     available_pool = [n for n in range(1, max_num + 1) if n not in exclude_numbers]
     if len(top_nums) < variant_size: 
@@ -396,9 +398,9 @@ def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_n
 
     if strategy_key == "average_sum_weighted":
         # Somă Medie (Selecție Ponderată pe Suma Optimă)
+        # Nu filtrează, dar favorizează numerele din mijlocul intervalului (pentru a echilibra suma)
         mid_point = (max_num + 1) / 2
         sum_weights = [abs(n - mid_point) for n in base_pool]
-        # Numerele mai aproape de mijloc (care stabilizeaza suma) au greutate mare
         sum_weights = [(max(sum_weights) + 1) - w for w in sum_weights] 
         
         return weighted_sample_unique(base_pool, sum_weights, variant_size)
@@ -414,7 +416,6 @@ def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_n
     if strategy_key == "golden_pairs":
         # Perechi/Triplete de Aur (Bază Combinatorie + Rest din Top N)
         base_elements = top_triplets if use_triplets and variant_size >= 3 and top_triplets else top_pairs
-        # base_size = 3 if use_triplets and variant_size >= 3 else 2
         
         if not base_elements: return random.sample(base_pool, variant_size)
 
@@ -440,10 +441,4 @@ def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_n
         return variant
 
     if strategy_key == "consecutive_pair":
-        # Numere Consecutive (Asigură o pereche)
-        n = random.choice(base_pool)
-        n_plus_1 = n + 1
-        
-        variant = [n]
-        
-        # CORECȚIA FINALĂ: Asigură-te că c
+        # Numere Consecutive (Asigu
