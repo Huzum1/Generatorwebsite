@@ -5,13 +5,16 @@ import random
 import itertools
 import numpy as np 
 
-st.set_page_config(page_title="Generator Variante Keno Avansat", page_icon="🎯", layout="wide")
+# ------------------------------------------------------------------------------------------------------
+# Configurare
+# ------------------------------------------------------------------------------------------------------
+st.set_page_config(page_title="Generator Variante Loto Avansat", page_icon="🎯", layout="wide")
 
-st.title("🎯 Generator Variante Keno Avansat & Ultra-Eficient")
+st.title("🎯 Generator Variante Loto Avansat & Ultra-Eficient")
 
 st.markdown("""
 Analiză statistică multi-nivel (frecvență, perechi, sumă, istoric) pentru a genera variante loto
-cu eficiență sporită. **Filtrele de calitate obligatorii au fost dezactivate** pentru a permite generarea maximă.
+cu eficiență sporită.
 """)
 
 # --- Session State Initialization ---
@@ -24,11 +27,14 @@ if "frequency" not in st.session_state:
 if "historic_rounds" not in st.session_state:
     st.session_state.historic_rounds = []
 if "sum_range" not in st.session_state:
-    st.session_state.sum_range = (0, 1000)
+    # Setat inițial la un interval larg
+    st.session_state.sum_range = (0, 1000) 
 if "max_number" not in st.session_state:
     st.session_state.max_number = 80
 if "pair_frequency" not in st.session_state:
     st.session_state.pair_frequency = {}
+if "triplet_frequency" not in st.session_state:
+    st.session_state.triplet_frequency = {}
 if "selected_strategies" not in st.session_state:
     st.session_state.selected_strategies = []
 if "history_depth" not in st.session_state:
@@ -38,8 +44,11 @@ if "avg_reps" not in st.session_state:
 if "generation_ran" not in st.session_state: 
     st.session_state.generation_ran = False 
 
-# --- Funcții Avansate de Analiză (FĂRĂ MODIFICĂRI DE LOGICĂ) ---
+# ------------------------------------------------------------------------------------------------------
+# Funcții Avansate de Analiză (FĂRĂ MODIFICĂRI DE LOGICĂ MAJORE)
+# ------------------------------------------------------------------------------------------------------
 def analyze_pairs_triplets(rounds, k_size):
+    # ... (Logica existentă este OK)
     pair_counts = Counter()
     triplet_counts = Counter()
     for round_nums in rounds:
@@ -54,6 +63,7 @@ def analyze_pairs_triplets(rounds, k_size):
     return sorted_pairs, sorted_triplets
 
 def analyze_sum(rounds):
+    # ... (Logica existentă este OK)
     sums = [sum(r) for r in rounds]
     if not sums: return (0, st.session_state.max_number * 20)
     sums_df = pd.Series(sums)
@@ -63,6 +73,7 @@ def analyze_sum(rounds):
     return (q25, q75)
 
 def analyze_cold_streak(rounds, max_num):
+    # ... (Logica existentă este OK)
     cold_streak = {}
     all_nums = set(range(1, max_num + 1))
     for num in all_nums:
@@ -74,8 +85,10 @@ def analyze_cold_streak(rounds, max_num):
     return dict(sorted(cold_streak.items(), key=lambda x: x[1], reverse=True))
 
 def analyze_repetitions(rounds):
+    # ... (Logica existentă este OK)
     repetitions = []
     if len(rounds) < 2: return 0
+    # Modifică pentru a te asigura că rundele sunt de tip listă/set
     for i in range(1, len(rounds)):
         prev_round = set(rounds[i-1])
         current_round = set(rounds[i])
@@ -84,11 +97,12 @@ def analyze_repetitions(rounds):
     return round(np.median(repetitions))
 
 def proceseaza_runde(lines, variant_size):
+    # ... (Logica existentă este OK)
     all_numbers = []
     rounds_data = []
     for line in lines:
         try:
-            # Presupunem că datele de intrare sunt separate prin virgulă (vezi st.text_area help)
+            # Datele sunt separate prin virgulă (formatul cerut de text_area)
             numbers = [int(x.strip()) for x in line.split(",") if x.strip()]
             if any(n > st.session_state.max_number or n < 1 for n in numbers):
                 st.error(f"Eroare: Runda conține numere în afara intervalului 1 la {st.session_state.max_number}.")
@@ -111,6 +125,7 @@ def proceseaza_runde(lines, variant_size):
     return frequency, sorted_freq, all_numbers
 
 def weighted_sample_unique(population, weights, k):
+    # ... (Logica existentă este OK)
     sample = []
     available = list(population)
     current_weights = list(weights)
@@ -118,6 +133,7 @@ def weighted_sample_unique(population, weights, k):
     for _ in range(k):
         if len(available) == 0: break
         if sum(current_weights) <= 0:
+            # Dacă greutățile sunt epuizate, ia random din ce a rămas
             sample.extend(random.sample(available, k - len(sample)))
             break
             
@@ -132,6 +148,7 @@ def weighted_sample_unique(population, weights, k):
 
 # Filtru Relaxat (doar unicitate)
 def is_valid_variant(variant, q1, q3, max_num):
+    # ... (Logica existentă este OK)
     variant_size = len(variant)
     variant_set = set(variant)
     
@@ -141,8 +158,9 @@ def is_valid_variant(variant, q1, q3, max_num):
         
     return True
 
-
-# --- Secțiunea 1: Configurare & Încarcare date ---
+# ------------------------------------------------------------------------------------------------------
+# Secțiunea 1: Configurare & Încarcare date
+# ------------------------------------------------------------------------------------------------------
 st.header("1. Configurare Loterie & Încărcare Date")
 
 col_max, col_size, col_round = st.columns(3)
@@ -182,6 +200,7 @@ with tab1:
 
 with tab2:
     st.subheader("✍️ Adaugă rundele manual")
+    # Păstrează formatul cu virgulă pentru coerența cu funcția proceseaza_runde
     manual_input = st.text_area("Introduce rundele (o rundă pe linie, numere separate cu virgulă)", height=300, 
                                 help=f"Exemplu: 1,12,25,30,44,51,68,79")
 
@@ -203,7 +222,9 @@ if st.button("✅ Procesează rundele și rulează analiza"):
 
 st.markdown("---")
 
-# --- Secțiunea 2: Configurare filtre ---
+# ------------------------------------------------------------------------------------------------------
+# Secțiunea 2: Configurare filtre
+# ------------------------------------------------------------------------------------------------------
 st.header("2. Configurare Filtre (Rece & Cald)")
 
 col1, col2 = st.columns(2)
@@ -217,9 +238,9 @@ with col1:
     if exclude_mode in ["🔢 Exclude cele mai reci", "🔀 Ambele"]:
         auto_cold_count = st.selectbox("Exclude topul celor mai reci N numere", [0, 5, 10, 15, 20, 30], index=0)
         if st.session_state.frequency and auto_cold_count > 0:
-            # Folosim sortarea pe bază de frecvență pentru a găsi 'cei mai reci' (cei cu frecvența cea mai mică)
-            sorted_freq_items = sorted(st.session_state.frequency.items(), key=lambda x: x[1], reverse=False) # <--- schimbat reverse=False
-            auto_exclude = set([x[0] for x in sorted_freq_items[:auto_cold_count]]) # <--- primele N (cele mai reci)
+            # CORECȚIE: Sortează după frecvență crescătoare pentru a găsi 'cei mai reci'
+            sorted_freq_items = sorted(st.session_state.frequency.items(), key=lambda x: x[1], reverse=False) 
+            auto_exclude = set([x[0] for x in sorted_freq_items[:auto_cold_count]]) 
             st.info(f"🔴 Auto-exclude: {sorted(auto_exclude)}")
 
     if exclude_mode in ["✍️ Manual", "🔀 Ambele"]:
@@ -242,6 +263,7 @@ with col2:
     
     if st.session_state.frequency:
         sorted_freq_items = sorted(st.session_state.frequency.items(), key=lambda x: x[1], reverse=True)
+        # Filtrează din numerele sortate tot ce este exclus
         top_numbers = [x[0] for x in sorted_freq_items if x[0] not in exclude_numbers][:top_count]
         st.session_state.top_numbers = top_numbers
         st.success(f"✅ **{len(top_numbers)}** numere disponibile pentru generare.")
@@ -253,7 +275,9 @@ with col2:
 
 st.markdown("---")
 
-# --- Secțiunea 3: Strategii de generare ---
+# ------------------------------------------------------------------------------------------------------
+# Secțiunea 3: Strategii de generare
+# ------------------------------------------------------------------------------------------------------
 st.header("3. Strategii de Generare Avansată")
 
 col_num, col_depth, col_comb = st.columns(3)
@@ -312,132 +336,106 @@ for i, (label, key) in enumerate(strategy_items):
 
 st.session_state.selected_strategies = selected_strategies_keys
 
-# --- Functie pentru generarea variantei pe baza strategiei (Logica) ---
+# ------------------------------------------------------------------------------------------------------
+# Functie pentru generarea variantei pe baza strategiei (Logica IMPLEMENTATĂ)
+# ------------------------------------------------------------------------------------------------------
 def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_numbers, max_num, q1, q3, cold_data, top_pairs, top_triplets, cold_candidates, historic_rounds, avg_reps, use_triplets):
-    if len(top_nums) < variant_size: return []
-    general_weights = [st.session_state.frequency.get(n, 1) for n in top_nums]
-    if not general_weights or sum(general_weights) == 0 or strategy_key == "standard":
-        variant = random.sample(top_nums, variant_size)
-    else:
-        variant = weighted_sample_unique(top_nums, general_weights, variant_size)
-    return list(set(variant)) 
-
-# --- Generare Logică Principală ---
-if st.button("🚀 Generează variante"):
-    if not st.session_state.top_numbers:
-        st.error("❌ Încarcă datele și configurează filtrele în Secțiunile 1 & 2.")
-    elif variant_size > len(st.session_state.top_numbers):
-        st.error(f"❌ Mărimea variantei ({variant_size}) este mai mare decât numerele disponibile ({len(st.session_state.top_numbers)}).")
-    elif not st.session_state.selected_strategies:
-        st.error("❌ Te rugăm să selectezi cel puțin o strategie de generare.")
-    else:
-        st.session_state.generation_ran = True 
-
-        top_nums = st.session_state.top_numbers
-        variants = set()
-        num_generated = 0
-        max_attempts = num_variants * 100
-        attempts = 0
-        
-        max_num = st.session_state.max_number
-        q1, q3 = st.session_state.sum_range
-        cold_data = analyze_cold_streak(st.session_state.historic_rounds, max_num)
-        cold_candidates = [num for num, age in cold_data.items() if num not in top_nums and num not in exclude_numbers]
-        top_pairs = st.session_state.pair_frequency
-        top_triplets = st.session_state.triplet_frequency
-        strategies_to_use = st.session_state.selected_strategies
-        num_strategies = len(strategies_to_use)
-        
-        while num_generated < num_variants and attempts < max_attempts:
-            attempts += 1
-            
-            strategy_key = strategies_to_use[attempts % num_strategies]
-            
-            variant = generate_variant_by_strategy(
-                strategy_key, top_nums, variant_size, exclude_numbers, max_num, q1, q3, 
-                cold_data, top_pairs, top_triplets, cold_candidates, 
-                st.session_state.historic_rounds, st.session_state.avg_reps, use_triplets
-            )
-            
-            # FILTRUL RELAXAT: Doar unicitate și mărime
-            if len(variant) == variant_size and is_valid_variant(variant, q1, q3, max_num):
-                final_variant = tuple(sorted(variant))
-                if final_variant not in variants:
-                    variants.add(final_variant)
-                    num_generated += 1
-
-        st.session_state.variants = list(variants)
-        random.shuffle(st.session_state.variants)
-        
-        selected_strategy_labels = [k for k, v in ALL_STRATEGIES.items() if v in strategies_to_use]
-
-        if len(st.session_state.variants) > 0:
-            st.success(f"✅ Generate **{len(st.session_state.variants)}** variante UNICE ({variant_size}/{variant_size}) din {num_variants} dorite, în {attempts} încercări, folosind strategiile: **{', '.join(selected_strategy_labels)}**")
-            if len(st.session_state.variants) < num_variants:
-                 st.warning(f"⚠️ **ATENȚIE**: Au fost generate doar {len(st.session_state.variants)} din {num_variants} dorite. Aceasta înseamnă că setul de numere fierbinți și/sau strategiile sunt încă prea restrictive pentru a ajunge la ținta de variante unice.")
-        else:
-             st.error(f"❌ Nu s-a putut genera nicio variantă unică. Încercări totale: {attempts}.")
-             st.info("Sugestie: Deși filtrele de calitate obligatorii au fost eliminate, selectarea unui număr prea mic de numere fierbinți în Secțiunea 2 (e.g., doar 10 numere pentru o variantă de 8) va limita în continuare generarea.")
-
-
-st.markdown("---")
-
-# --- Secțiunea 4: Preview & Export (Export Simplificat) ---
-
-if st.session_state.generation_ran: 
-    st.header("4. Preview și Export")
+    # Daca nu sunt destule numere in top_nums, ne intoarcem la aleatoriu din toate numerele disponibile
+    available_pool = [n for n in range(1, max_num + 1) if n not in exclude_numbers]
+    if len(top_nums) < variant_size:
+        return random.sample(available_pool, min(variant_size, len(available_pool)))
     
-    # 1. GENERAREA OUTPUT-ULUI PENTRU PREVIEW ȘI EXPORT
-    export_lines = []
+    general_weights = [st.session_state.frequency.get(n, 1) for n in top_nums]
+    base_pool = top_nums.copy()
+    
+    # --------------------------------------------------------------------
+    # Strategii bazate pe PONDERARE (Weighted Sampling)
+    # --------------------------------------------------------------------
+    if strategy_key == "weighted_frequency" or strategy_key == "standard":
+        # Standard: Aleatoriu Ponderat bazat pe frecvență
+        return weighted_sample_unique(base_pool, general_weights, variant_size)
 
-    if st.session_state.variants:
+    if strategy_key == "hot_cold_ratio":
+        # Termometrul (Hot/Cold Ratio 70/30)
+        num_hot = round(variant_size * 0.7)
+        num_cold = variant_size - num_hot
         
-        generated_nums = []
-        for v in st.session_state.variants:
-            generated_nums.extend(v)
-        generated_freq = Counter(generated_nums)
+        hot_part = weighted_sample_unique(base_pool, general_weights, num_hot)
         
-        st.subheader(f"Statistici Variante Generate ({len(st.session_state.variants)} variante)")
+        # Ponderarea numerelor reci (cele care nu sunt in top_nums, dar nu sunt nici excluse)
+        cold_weights = [cold_data.get(n, 1) for n in cold_candidates]
+        cold_part = weighted_sample_unique(cold_candidates, cold_weights, num_cold)
         
-        col_g1, col_g2 = st.columns(2)
-        with col_g1:
-            top_generated = sorted(generated_freq.items(), key=lambda x: x[1], reverse=True)[:10]
-            st.info(f"Top 10 numere folosite: {', '.join([f'{n}({f}x)' for n, f in top_generated])}")
+        variant = list(set(hot_part + cold_part))
+        # Completeaza random daca nu sunt suficiente (din cauza set-ului)
+        while len(variant) < variant_size and available_pool:
+            num = random.choice(available_pool)
+            if num not in variant:
+                variant.append(num)
+        return variant[:variant_size]
+
+    if strategy_key == "average_sum_weighted":
+        # Somă Medie (Selecție Ponderată pe Suma Optimă)
+        # Greutățile sunt inversate: numerele din mijlocul intervalului (care ridica suma) au greutate mai mare
+        mid_point = (max_num + 1) / 2
+        sum_weights = [abs(n - mid_point) for n in base_pool]
+        # Inversam, astfel incat numerele mai aproape de mijloc (suma mica a diferentei) sa aiba greutate mare
+        sum_weights = [(max(sum_weights) + 1) - w for w in sum_weights]
+        
+        return weighted_sample_unique(base_pool, sum_weights, variant_size)
+        
+    # --------------------------------------------------------------------
+    # Strategii bazate pe COMBINATORICĂ (Perechi/Triplete/Structură)
+    # --------------------------------------------------------------------
+    if strategy_key == "golden_pairs":
+        # Perechi/Triplete de Aur (Bază Combinatorie + Rest din Top N)
+        base_elements = top_triplets if use_triplets and variant_size >= 3 and top_triplets else top_pairs
+        base_size = 3 if use_triplets and variant_size >= 3 else 2
+        
+        if not base_elements: return random.sample(base_pool, variant_size)
+
+        chosen_base = random.choice(list(base_elements.keys()))
+        variant = list(chosen_base)
+        
+        # Completeaza cu restul (variant_size - base_size) din numerele fierbinti (fara cele alese deja)
+        remaining_pool = [n for n in base_pool if n not in variant]
+        variant.extend(random.sample(remaining_pool, variant_size - len(variant)))
+        return variant
+
+    if strategy_key == "forced_repetitions":
+        # Aderență Forțată la Runda Precedentă (Repetiții Istorice)
+        if not historic_rounds: return random.sample(base_pool, variant_size)
+        
+        last_round = set(historic_rounds[-1])
+        num_reps = st.session_state.avg_reps # Nr. median de repetitii
+        
+        # Alege num_reps din ultima rundă
+        reps_part = random.sample(list(last_round), min(num_reps, len(last_round)))
+        variant = reps_part
+        
+        # Completeaza cu restul din top_nums (ponderat)
+        remaining_pool = [n for n in base_pool if n not in variant]
+        variant.extend(weighted_sample_unique(remaining_pool, general_weights, variant_size - len(variant)))
+        return variant
+
+    if strategy_key == "consecutive_pair":
+        # Numere Consecutive (Asigură o pereche)
+        # Alege un număr (n) din top_nums, apoi adaugă n+1
+        n = random.choice(base_pool)
+        n_plus_1 = n + 1
+        
+        variant = [n]
+        if n_plus_1 <= max_num and n_plus_1 not in variant:
+            variant.append(n_plus_1)
             
-        with col_g2:
-            avg_sum = sum(sum(v) for v in st.session_state.variants) / len(st.session_state.variants)
-            st.info(f"Suma medie a variantelor generate: **{avg_sum:.2f}** (Optim: {st.session_state.sum_range[0]}-{st.session_state.sum_range[1]})")
+        # Completeaza random ponderat
+        remaining_pool = [num for num in base_pool if num not in variant]
+        variant.extend(weighted_sample_unique(remaining_pool, general_weights, variant_size - len(variant)))
+        return variant
 
-        
-        preview_count = min(20, len(st.session_state.variants))
-        st.subheader(f"Preview (Primele {preview_count} variante)")
-        
-        # POPULARE LINII EXPORT (ID, VIRGULĂ, VARIANTE SEPARATE PRIN SPAȚIU)
-        preview_data = []
-        for i, v in enumerate(st.session_state.variants):
-            variant_str_space = " ".join(map(str, sorted(v)))
-            # Aici este modificarea cheie: adăugarea ID-ului (i+1) și a virgulei
-            export_line = f"{i+1}, {variant_str_space}" 
-            
-            export_lines.append(export_line)
-            # Păstrăm preview_data fără ID pentru afișarea în DataFrame-ul de preview
-            preview_data.append(variant_str_space) 
-        
-        # PREVIEW AFISAT CU ID PENTRU CLARITATEA VIZUALĂ ÎN APLICAȚIE
-        preview_df = pd.DataFrame(
-            [[i+1, v] for i, v in enumerate(preview_data[:preview_count])], 
-            columns=["ID", "Combinație"]
-        )
-        st.dataframe(preview_df, use_container_width=True, hide_index=True)
-
-        
-        txt_output = "\n".join(export_lines)
-        
-    else: 
-        # Cazul 0 variante: exportul este un fișier gol
-        txt_output = ""
-        st.warning("⚠️ Nu s-au generat variante valide. Fișierul exportat va fi gol.")
-
-
-    # 2. BUTONUL DE DESCARCARE
-    st.download_button("⬇️ Descarcă variantele (TXT)", txt_output, "variante_generate_eficient.txt", "text/plain")
+    # --------------------------------------------------------------------
+    # Strategii bazate pe DISTRIBUȚIE (Par/Impar/Cadrane)
+    # --------------------------------------------------------------------
+    if strategy_key == "parity_balance":
+        # Par-Impar Echilibrat (Generare Forțată)
+        # Forte
