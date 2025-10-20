@@ -1,4 +1,4 @@
-import streamlit as st
+1import streamlit as st
 import pandas as pd
 from collections import Counter
 import random
@@ -27,7 +27,6 @@ if "frequency" not in st.session_state:
 if "historic_rounds" not in st.session_state:
     st.session_state.historic_rounds = []
 if "sum_range" not in st.session_state:
-    # Setat inițial la un interval larg
     st.session_state.sum_range = (0, 1000) 
 if "max_number" not in st.session_state:
     st.session_state.max_number = 80
@@ -45,10 +44,9 @@ if "generation_ran" not in st.session_state:
     st.session_state.generation_ran = False 
 
 # ------------------------------------------------------------------------------------------------------
-# Funcții Avansate de Analiză (FĂRĂ MODIFICĂRI DE LOGICĂ MAJORE)
+# Funcții Avansate de Analiză
 # ------------------------------------------------------------------------------------------------------
 def analyze_pairs_triplets(rounds, k_size):
-    # ... (Logica existentă este OK)
     pair_counts = Counter()
     triplet_counts = Counter()
     for round_nums in rounds:
@@ -63,7 +61,6 @@ def analyze_pairs_triplets(rounds, k_size):
     return sorted_pairs, sorted_triplets
 
 def analyze_sum(rounds):
-    # ... (Logica existentă este OK)
     sums = [sum(r) for r in rounds]
     if not sums: return (0, st.session_state.max_number * 20)
     sums_df = pd.Series(sums)
@@ -73,7 +70,6 @@ def analyze_sum(rounds):
     return (q25, q75)
 
 def analyze_cold_streak(rounds, max_num):
-    # ... (Logica existentă este OK)
     cold_streak = {}
     all_nums = set(range(1, max_num + 1))
     for num in all_nums:
@@ -85,10 +81,8 @@ def analyze_cold_streak(rounds, max_num):
     return dict(sorted(cold_streak.items(), key=lambda x: x[1], reverse=True))
 
 def analyze_repetitions(rounds):
-    # ... (Logica existentă este OK)
     repetitions = []
     if len(rounds) < 2: return 0
-    # Modifică pentru a te asigura că rundele sunt de tip listă/set
     for i in range(1, len(rounds)):
         prev_round = set(rounds[i-1])
         current_round = set(rounds[i])
@@ -97,7 +91,6 @@ def analyze_repetitions(rounds):
     return round(np.median(repetitions))
 
 def proceseaza_runde(lines, variant_size):
-    # ... (Logica existentă este OK)
     all_numbers = []
     rounds_data = []
     for line in lines:
@@ -125,7 +118,6 @@ def proceseaza_runde(lines, variant_size):
     return frequency, sorted_freq, all_numbers
 
 def weighted_sample_unique(population, weights, k):
-    # ... (Logica existentă este OK)
     sample = []
     available = list(population)
     current_weights = list(weights)
@@ -133,7 +125,6 @@ def weighted_sample_unique(population, weights, k):
     for _ in range(k):
         if len(available) == 0: break
         if sum(current_weights) <= 0:
-            # Dacă greutățile sunt epuizate, ia random din ce a rămas
             sample.extend(random.sample(available, k - len(sample)))
             break
             
@@ -148,7 +139,6 @@ def weighted_sample_unique(population, weights, k):
 
 # Filtru Relaxat (doar unicitate)
 def is_valid_variant(variant, q1, q3, max_num):
-    # ... (Logica existentă este OK)
     variant_size = len(variant)
     variant_set = set(variant)
     
@@ -200,7 +190,6 @@ with tab1:
 
 with tab2:
     st.subheader("✍️ Adaugă rundele manual")
-    # Păstrează formatul cu virgulă pentru coerența cu funcția proceseaza_runde
     manual_input = st.text_area("Introduce rundele (o rundă pe linie, numere separate cu virgulă)", height=300, 
                                 help=f"Exemplu: 1,12,25,30,44,51,68,79")
 
@@ -208,7 +197,7 @@ if st.button("✅ Procesează rundele și rulează analiza"):
     if uploaded_file and lines:
         results = proceseaza_runde(lines, variant_size)
     elif manual_input.strip():
-        lines = [line.strip() for line in manual_input.split("\n") if line.strip()]
+        lines = [line.strip() for line in manual_input.split("\n") if manual_input.strip()]
         results = proceseaza_runde(lines, variant_size)
     else:
         st.warning("⚠️ Te rugăm să încarci sau să introduci datele.")
@@ -228,6 +217,7 @@ st.markdown("---")
 st.header("2. Configurare Filtre (Rece & Cald)")
 
 col1, col2 = st.columns(2)
+# Inițializare exclude_numbers la nivel de script
 exclude_numbers = set()
 
 with col1:
@@ -238,7 +228,7 @@ with col1:
     if exclude_mode in ["🔢 Exclude cele mai reci", "🔀 Ambele"]:
         auto_cold_count = st.selectbox("Exclude topul celor mai reci N numere", [0, 5, 10, 15, 20, 30], index=0)
         if st.session_state.frequency and auto_cold_count > 0:
-            # CORECȚIE: Sortează după frecvență crescătoare pentru a găsi 'cei mai reci'
+            # Sortează după frecvență crescătoare pentru a găsi 'cei mai reci'
             sorted_freq_items = sorted(st.session_state.frequency.items(), key=lambda x: x[1], reverse=False) 
             auto_exclude = set([x[0] for x in sorted_freq_items[:auto_cold_count]]) 
             st.info(f"🔴 Auto-exclude: {sorted(auto_exclude)}")
@@ -263,7 +253,6 @@ with col2:
     
     if st.session_state.frequency:
         sorted_freq_items = sorted(st.session_state.frequency.items(), key=lambda x: x[1], reverse=True)
-        # Filtrează din numerele sortate tot ce este exclus
         top_numbers = [x[0] for x in sorted_freq_items if x[0] not in exclude_numbers][:top_count]
         st.session_state.top_numbers = top_numbers
         st.success(f"✅ **{len(top_numbers)}** numere disponibile pentru generare.")
@@ -340,20 +329,49 @@ st.session_state.selected_strategies = selected_strategies_keys
 # Functie pentru generarea variantei pe baza strategiei (Logica IMPLEMENTATĂ)
 # ------------------------------------------------------------------------------------------------------
 def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_numbers, max_num, q1, q3, cold_data, top_pairs, top_triplets, cold_candidates, historic_rounds, avg_reps, use_triplets):
-    # Daca nu sunt destule numere in top_nums, ne intoarcem la aleatoriu din toate numerele disponibile
+    
     available_pool = [n for n in range(1, max_num + 1) if n not in exclude_numbers]
-    if len(top_nums) < variant_size:
+    if len(top_nums) < variant_size: 
         return random.sample(available_pool, min(variant_size, len(available_pool)))
     
+    # Pool-ul de bază și greutățile standard
     general_weights = [st.session_state.frequency.get(n, 1) for n in top_nums]
     base_pool = top_nums.copy()
     
     # --------------------------------------------------------------------
     # Strategii bazate pe PONDERARE (Weighted Sampling)
     # --------------------------------------------------------------------
-    if strategy_key == "weighted_frequency" or strategy_key == "standard":
-        # Standard: Aleatoriu Ponderat bazat pe frecvență
+    if strategy_key == "weighted_frequency" or strategy_key == "standard" or strategy_key == "mix_strategy":
+        # Standard/Frecvență Ponderată/Mix (Base case)
         return weighted_sample_unique(base_pool, general_weights, variant_size)
+
+    if strategy_key == "hot_numbers":
+        # Hot Numbers (3 din top 10 + rest ponderat)
+        hot_10 = top_nums[:min(10, len(top_nums))]
+        num_hot = min(3, variant_size)
+        variant = random.sample(hot_10, num_hot)
+        
+        remaining_pool = [n for n in base_pool if n not in variant]
+        variant.extend(weighted_sample_unique(remaining_pool, general_weights, variant_size - len(variant)))
+        return variant
+
+    if strategy_key == "cold_hot_hybrid":
+        # Cold-Hot Hybrid (Mix 50/50 ponderat)
+        num_hot = variant_size // 2
+        num_cold = variant_size - num_hot
+        
+        hot_part = weighted_sample_unique(base_pool, general_weights, num_hot)
+        
+        cold_weights = [cold_data.get(n, 1) for n in cold_candidates]
+        cold_part = weighted_sample_unique(cold_candidates, cold_weights, num_cold)
+        
+        variant = list(set(hot_part + cold_part))
+        # Completeaza random daca nu sunt suficiente
+        while len(variant) < variant_size:
+            num = random.choice(available_pool)
+            if num not in variant:
+                variant.append(num)
+        return variant[:variant_size]
 
     if strategy_key == "hot_cold_ratio":
         # Termometrul (Hot/Cold Ratio 70/30)
@@ -362,28 +380,35 @@ def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_n
         
         hot_part = weighted_sample_unique(base_pool, general_weights, num_hot)
         
-        # Ponderarea numerelor reci (cele care nu sunt in top_nums, dar nu sunt nici excluse)
         cold_weights = [cold_data.get(n, 1) for n in cold_candidates]
         cold_part = weighted_sample_unique(cold_candidates, cold_weights, num_cold)
         
         variant = list(set(hot_part + cold_part))
-        # Completeaza random daca nu sunt suficiente (din cauza set-ului)
         while len(variant) < variant_size and available_pool:
             num = random.choice(available_pool)
             if num not in variant:
                 variant.append(num)
         return variant[:variant_size]
 
+    if strategy_key == "cold_booster":
+        # Restantierul (Cold Booster) - Ponderare inversă pe Hot Numbers (cele reci au greutate mai mare)
+        inverse_weights = [(max(general_weights) + 1) - w for w in general_weights]
+        return weighted_sample_unique(base_pool, inverse_weights, variant_size)
+
     if strategy_key == "average_sum_weighted":
         # Somă Medie (Selecție Ponderată pe Suma Optimă)
-        # Greutățile sunt inversate: numerele din mijlocul intervalului (care ridica suma) au greutate mai mare
         mid_point = (max_num + 1) / 2
         sum_weights = [abs(n - mid_point) for n in base_pool]
-        # Inversam, astfel incat numerele mai aproape de mijloc (suma mica a diferentei) sa aiba greutate mare
-        sum_weights = [(max(sum_weights) + 1) - w for w in sum_weights]
+        # Numerele mai aproape de mijloc (care stabilizeaza suma) au greutate mare
+        sum_weights = [(max(sum_weights) + 1) - w for w in sum_weights] 
         
         return weighted_sample_unique(base_pool, sum_weights, variant_size)
         
+    if strategy_key == "low_numbers_gravitation":
+        # Atracția Vestică (Low Numbers Gravitation) - Numerele mici au greutate sporită
+        low_weights = [(max_num + 1) - n for n in base_pool]
+        return weighted_sample_unique(base_pool, low_weights, variant_size)
+
     # --------------------------------------------------------------------
     # Strategii bazate pe COMBINATORICĂ (Perechi/Triplete/Structură)
     # --------------------------------------------------------------------
@@ -397,9 +422,8 @@ def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_n
         chosen_base = random.choice(list(base_elements.keys()))
         variant = list(chosen_base)
         
-        # Completeaza cu restul (variant_size - base_size) din numerele fierbinti (fara cele alese deja)
         remaining_pool = [n for n in base_pool if n not in variant]
-        variant.extend(random.sample(remaining_pool, variant_size - len(variant)))
+        variant.extend(random.sample(remaining_pool, min(variant_size - len(variant), len(remaining_pool))))
         return variant
 
     if strategy_key == "forced_repetitions":
@@ -407,35 +431,19 @@ def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_n
         if not historic_rounds: return random.sample(base_pool, variant_size)
         
         last_round = set(historic_rounds[-1])
-        num_reps = st.session_state.avg_reps # Nr. median de repetitii
+        num_reps = st.session_state.avg_reps
         
-        # Alege num_reps din ultima rundă
         reps_part = random.sample(list(last_round), min(num_reps, len(last_round)))
-        variant = reps_part
+        variant = list(reps_part)
         
-        # Completeaza cu restul din top_nums (ponderat)
         remaining_pool = [n for n in base_pool if n not in variant]
         variant.extend(weighted_sample_unique(remaining_pool, general_weights, variant_size - len(variant)))
         return variant
 
     if strategy_key == "consecutive_pair":
         # Numere Consecutive (Asigură o pereche)
-        # Alege un număr (n) din top_nums, apoi adaugă n+1
         n = random.choice(base_pool)
         n_plus_1 = n + 1
         
         variant = [n]
-        if n_plus_1 <= max_num and n_plus_1 not in variant:
-            variant.append(n_plus_1)
-            
-        # Completeaza random ponderat
-        remaining_pool = [num for num in base_pool if num not in variant]
-        variant.extend(weighted_sample_unique(remaining_pool, general_weights, variant_size - len(variant)))
-        return variant
-
-    # --------------------------------------------------------------------
-    # Strategii bazate pe DISTRIBUȚIE (Par/Impar/Cadrane)
-    # --------------------------------------------------------------------
-    if strategy_key == "parity_balance":
-        # Par-Impar Echilibrat (Generare Forțată)
-        # Forte
+        if n_plus_1 <= max_num and n_plus_1 in base_pool and
