@@ -88,6 +88,7 @@ def proceseaza_runde(lines, variant_size):
     rounds_data = []
     for line in lines:
         try:
+            # Presupunem că datele de intrare sunt separate prin virgulă (vezi st.text_area help)
             numbers = [int(x.strip()) for x in line.split(",") if x.strip()]
             if any(n > st.session_state.max_number or n < 1 for n in numbers):
                 st.error(f"Eroare: Runda conține numere în afara intervalului 1 la {st.session_state.max_number}.")
@@ -216,8 +217,9 @@ with col1:
     if exclude_mode in ["🔢 Exclude cele mai reci", "🔀 Ambele"]:
         auto_cold_count = st.selectbox("Exclude topul celor mai reci N numere", [0, 5, 10, 15, 20, 30], index=0)
         if st.session_state.frequency and auto_cold_count > 0:
-            sorted_freq_items = sorted(st.session_state.frequency.items(), key=lambda x: x[1], reverse=True)
-            auto_exclude = set([x[0] for x in sorted_freq_items[-auto_cold_count:]])
+            # Folosim sortarea pe bază de frecvență pentru a găsi 'cei mai reci' (cei cu frecvența cea mai mică)
+            sorted_freq_items = sorted(st.session_state.frequency.items(), key=lambda x: x[1], reverse=False) # <--- schimbat reverse=False
+            auto_exclude = set([x[0] for x in sorted_freq_items[:auto_cold_count]]) # <--- primele N (cele mai reci)
             st.info(f"🔴 Auto-exclude: {sorted(auto_exclude)}")
 
     if exclude_mode in ["✍️ Manual", "🔀 Ambele"]:
@@ -410,12 +412,16 @@ if st.session_state.generation_ran:
         preview_count = min(20, len(st.session_state.variants))
         st.subheader(f"Preview (Primele {preview_count} variante)")
         
-        # POPULARE LINII EXPORT (DOAR VARIANTE, SEPARATE PRIN SPAȚIU)
+        # POPULARE LINII EXPORT (ID, VIRGULĂ, VARIANTE SEPARATE PRIN SPAȚIU)
         preview_data = []
-        for v in st.session_state.variants:
+        for i, v in enumerate(st.session_state.variants):
             variant_str_space = " ".join(map(str, sorted(v)))
-            export_lines.append(variant_str_space)
-            preview_data.append(variant_str_space)
+            # Aici este modificarea cheie: adăugarea ID-ului (i+1) și a virgulei
+            export_line = f"{i+1}, {variant_str_space}" 
+            
+            export_lines.append(export_line)
+            # Păstrăm preview_data fără ID pentru afișarea în DataFrame-ul de preview
+            preview_data.append(variant_str_space) 
         
         # PREVIEW AFISAT CU ID PENTRU CLARITATEA VIZUALĂ ÎN APLICAȚIE
         preview_df = pd.DataFrame(
