@@ -11,7 +11,7 @@ st.title("🎯 Generator Variante Keno Avansat & Ultra-Eficient")
 
 st.markdown("""
 Analiză statistică multi-nivel (frecvență, perechi, sumă, istoric) pentru a genera variante loto
-cu eficiență sporită. **Toate variantele sunt filtrate strict** pentru a respecta tiparele statistice de bază.
+cu eficiență sporită. **Filtrele de calitate obligatorii au fost dezactivate** pentru a permite generarea maximă.
 """)
 
 # --- Session State Initialization ---
@@ -39,11 +39,9 @@ if "generation_ran" not in st.session_state:
     st.session_state.generation_ran = False 
 
 # --- Funcții Avansate de Analiză (FĂRĂ MODIFICĂRI DE LOGICĂ) ---
-
 def analyze_pairs_triplets(rounds, k_size):
     pair_counts = Counter()
     triplet_counts = Counter()
-    
     for round_nums in rounds:
         sorted_nums = sorted(round_nums)
         for pair in itertools.combinations(sorted_nums, 2):
@@ -51,17 +49,13 @@ def analyze_pairs_triplets(rounds, k_size):
         if k_size >= 3:
              for triplet in itertools.combinations(sorted_nums, 3):
                 triplet_counts[tuple(sorted(triplet))] += 1
-    
     sorted_pairs = dict(sorted(pair_counts.items(), key=lambda x: x[1], reverse=True))
     sorted_triplets = dict(sorted(triplet_counts.items(), key=lambda x: x[1], reverse=True))
-    
     return sorted_pairs, sorted_triplets
 
 def analyze_sum(rounds):
     sums = [sum(r) for r in rounds]
-    if not sums:
-        return (0, st.session_state.max_number * 20)
-    
+    if not sums: return (0, st.session_state.max_number * 20)
     sums_df = pd.Series(sums)
     q25 = int(sums_df.quantile(0.25))
     q75 = int(sums_df.quantile(0.75))
@@ -71,63 +65,49 @@ def analyze_sum(rounds):
 def analyze_cold_streak(rounds, max_num):
     cold_streak = {}
     all_nums = set(range(1, max_num + 1))
-    
     for num in all_nums:
         age = 0
         for round_nums in reversed(rounds):
-            if num in round_nums:
-                break
+            if num in round_nums: break
             age += 1
         cold_streak[num] = age
-    
     return dict(sorted(cold_streak.items(), key=lambda x: x[1], reverse=True))
 
 def analyze_repetitions(rounds):
     repetitions = []
     if len(rounds) < 2: return 0
-    
     for i in range(1, len(rounds)):
         prev_round = set(rounds[i-1])
         current_round = set(rounds[i])
         repetitions.append(len(prev_round.intersection(current_round)))
-        
     if not repetitions: return 0
     return round(np.median(repetitions))
-
 
 def proceseaza_runde(lines, variant_size):
     all_numbers = []
     rounds_data = []
-    
     for line in lines:
         try:
             numbers = [int(x.strip()) for x in line.split(",") if x.strip()]
-            
             if any(n > st.session_state.max_number or n < 1 for n in numbers):
                 st.error(f"Eroare: Runda conține numere în afara intervalului 1 la {st.session_state.max_number}.")
                 return None, None, None
-                
             if numbers:
                 all_numbers.extend(numbers)
                 rounds_data.append(numbers)
         except ValueError:
             st.error(f"Eroare la procesarea liniei: '{line}'. Asigură-te că sunt doar numere întregi valide separate prin virgulă.")
             return None, None, None
-            
-    if not rounds_data:
-         return None, None, None
+    if not rounds_data: return None, None, None
 
     frequency = Counter(all_numbers)
     sorted_freq = sorted(frequency.items(), key=lambda x: x[1], reverse=True)
     st.session_state.frequency = dict(sorted_freq)
     st.session_state.historic_rounds = rounds_data
-
     st.session_state.pair_frequency, st.session_state.triplet_frequency = analyze_pairs_triplets(rounds_data, variant_size)
     st.session_state.sum_range = analyze_sum(rounds_data)
     st.session_state.avg_reps = analyze_repetitions(rounds_data)
-    
     return frequency, sorted_freq, all_numbers
-
 
 def weighted_sample_unique(population, weights, k):
     sample = []
@@ -135,8 +115,7 @@ def weighted_sample_unique(population, weights, k):
     current_weights = list(weights)
 
     for _ in range(k):
-        if len(available) == 0:
-            break
+        if len(available) == 0: break
         if sum(current_weights) <= 0:
             sample.extend(random.sample(available, k - len(sample)))
             break
@@ -150,37 +129,21 @@ def weighted_sample_unique(population, weights, k):
         
     return sample
 
+# MODIFICARE CRITICĂ: Eliminarea filtrelor stricte (Sumă, Par/Impar, Consecutivitate)
 def is_valid_variant(variant, q1, q3, max_num):
     variant_size = len(variant)
     variant_set = set(variant)
     
-    if len(variant_set) != variant_size: return False
-    
-    current_sum = sum(variant)
-    if not (q1 <= current_sum <= q3): return False
-    
-    num_par = len([n for n in variant if n % 2 == 0])
-    num_impar = variant_size - num_par
-    max_diff = 2 if variant_size > 5 else 1 
-    if abs(num_par - num_impar) > max_diff: return False
-    
-    consecutive_count = 0
-    max_consecutive = 0
-    sorted_variant = sorted(variant)
-    
-    for i in range(1, variant_size):
-        if sorted_variant[i] == sorted_variant[i-1] + 1:
-            consecutive_count += 1
-            max_consecutive = max(max_consecutive, consecutive_count)
-        else:
-            consecutive_count = 0
-    
-    if max_consecutive >= 3: return False 
-
-    if variant_size >= 8:
-        spread = sorted_variant[-1] - sorted_variant[0]
-        min_spread = max_num * 0.75 
-        if spread < min_spread: return False
+    # *** SINGURUL FILTRU RĂMAS: Fără duplicate ***
+    if len(variant_set) != variant_size: 
+        return False
+        
+    # --- FILTRELE DE CALITATE AU FOST ELIMINATE ---
+    # Sumă (q1 <= current_sum <= q3) - ELIMINAT
+    # Par/Impar (abs(num_par - num_impar) <= max_diff) - ELIMINAT
+    # Consecutivitate (max_consecutive < 3) - ELIMINAT
+    # Spread (spread >= min_spread) - ELIMINAT
+    # ---------------------------------------------
 
     return True
 
@@ -319,7 +282,7 @@ with col_comb:
         use_triplets = False
 
 
-# Corecție: Am folosit ghilimele simple ('') pentru textul interior
+# S-a folosit sintaxa corectă (ghilimele simple în interior)
 ALL_STRATEGIES = {
     "🎯 Standard (Aleatoriu Ponderat)": "standard", 
     "🔥 Hot Numbers (3 din top 10 + rest ponderat)": "hot_numbers", 
@@ -357,23 +320,13 @@ st.session_state.selected_strategies = selected_strategies_keys
 
 # --- Functie pentru generarea variantei pe baza strategiei (Logica) ---
 def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_numbers, max_num, q1, q3, cold_data, top_pairs, top_triplets, cold_candidates, historic_rounds, avg_reps, use_triplets):
-    
     if len(top_nums) < variant_size: return []
-
     general_weights = [st.session_state.frequency.get(n, 1) for n in top_nums]
-    variant_set = set()
-
-    # Logica de generare (Simplificată pentru a evita repetarea codului)
     if not general_weights or sum(general_weights) == 0 or strategy_key == "standard":
         variant = random.sample(top_nums, variant_size)
     else:
-        # Folosim extragerea ponderată pentru majoritatea strategiilor
         variant = weighted_sample_unique(top_nums, general_weights, variant_size)
-        
-    variant_set.update(variant)
-    
-    return list(variant_set)
-
+    return list(set(variant)) # Asigură-te că nu sunt duplicate
 
 # --- Generare Logică Principală ---
 if st.button("🚀 Generează variante"):
@@ -384,7 +337,7 @@ if st.button("🚀 Generează variante"):
     elif not st.session_state.selected_strategies:
         st.error("❌ Te rugăm să selectezi cel puțin o strategie de generare.")
     else:
-        st.session_state.generation_ran = True # Setăm flag-ul de generare
+        st.session_state.generation_ran = True 
 
         top_nums = st.session_state.top_numbers
         variants = set()
@@ -412,6 +365,7 @@ if st.button("🚀 Generează variante"):
                 st.session_state.historic_rounds, st.session_state.avg_reps, use_triplets
             )
             
+            # FILTRUL RELAXAT: Doar unicitate și mărime
             if len(variant) == variant_size and is_valid_variant(variant, q1, q3, max_num):
                 final_variant = tuple(sorted(variant))
                 if final_variant not in variants:
@@ -425,8 +379,11 @@ if st.button("🚀 Generează variante"):
 
         if len(st.session_state.variants) > 0:
             st.success(f"✅ Generate **{len(st.session_state.variants)}** variante UNICE ({variant_size}/{variant_size}) din {num_variants} dorite, în {attempts} încercări, folosind strategiile: **{', '.join(selected_strategy_labels)}**")
+            if len(st.session_state.variants) < num_variants:
+                 st.warning(f"⚠️ **ATENȚIE**: Au fost generate doar {len(st.session_state.variants)} din {num_variants} dorite. Aceasta înseamnă că setul de numere fierbinți și/sau strategiile sunt încă prea restrictive pentru a ajunge la ținta de variante unice.")
         else:
-             st.error(f"❌ Nu s-a putut genera nicio variantă unică după aplicarea filtrelor de calitate. Încercări totale: {attempts}. **Sugestie: Relaxează filtrele din Secțiunea 2 sau dezactivează strategiile restrictive.**")
+             st.error(f"❌ Nu s-a putut genera nicio variantă unică. Încercări totale: {attempts}.")
+             st.info("Sugestie: Deși filtrele de calitate obligatorii au fost eliminate, selectarea unui număr prea mic de numere fierbinți în Secțiunea 2 (e.g., doar 10 numere pentru o variantă de 8) va limita în continuare generarea.")
 
 
 st.markdown("---")
@@ -435,6 +392,8 @@ st.markdown("---")
 
 if st.session_state.generation_ran: 
     st.header("4. Preview și Export")
+    
+    # Am introdus un bloc de cod complet pentru export pentru a preveni erorile de sintaxă în cazul de 0 variante
     
     if st.session_state.variants:
         
@@ -467,14 +426,16 @@ if st.session_state.generation_ran:
         
         export_lines = []
         for i, v in enumerate(st.session_state.variants):
-            variant_str = " ".join(map(str, sorted(v)))
-            export_lines.append(f"{i+1},{variant_str}")
+            variant_str = ",".join(map(str, sorted(v))) # Format CSV (cu virgulă)
+            export_lines.append(variant_str)
             
         txt_output = "\n".join(export_lines)
         
     else: # FALLBACK de export pentru 0 variante
-        txt_output = f"Nu s-a putut genera nicio variantă validă după {attempts} încercări. Revizuiți filtrele de calitate și selecția de numere fierbinți."
+        # S-a asigurat că textul de eroare este închis corect (f-string)
+        txt_output = f"Nu s-a putut genera nicio variantă validă după {attempts} încercări. Revizuiți filtrele de numere fierbinți și strategiile selectate."
         st.warning("⚠️ Fișierul de export va conține doar un mesaj de eroare, deoarece nu s-au putut genera variante unice.")
 
 
+    # Am corectat sintaxa st.download_button pentru a evita eroarea "unterminated string literal"
     st.download_button("⬇️ Descarcă variantele (CSV/TXT)", txt_output, "variante_generate_eficient.csv", "text/csv")
