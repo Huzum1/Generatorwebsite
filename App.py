@@ -425,7 +425,6 @@ if st.session_state.generation_ran:
         
     else: 
         # Cazul 0 variante: exportul este doar header-ul
-        txt_output = "ID,Combinație"
         st.warning("⚠️ Nu s-au generat variante valide. Fișierul exportat va conține doar antetul (header-ul).")
 
 
