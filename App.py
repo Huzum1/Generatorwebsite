@@ -217,8 +217,7 @@ st.markdown("---")
 st.header("2. Configurare Filtre (Rece & Cald)")
 
 col1, col2 = st.columns(2)
-# Inițializare exclude_numbers la nivel de script
-exclude_numbers = set()
+exclude_numbers = set() # Re-inițializare locală pentru a capta datele din input
 
 with col1:
     st.subheader("❄️ Exclude numere")
@@ -415,7 +414,7 @@ def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_n
     if strategy_key == "golden_pairs":
         # Perechi/Triplete de Aur (Bază Combinatorie + Rest din Top N)
         base_elements = top_triplets if use_triplets and variant_size >= 3 and top_triplets else top_pairs
-        base_size = 3 if use_triplets and variant_size >= 3 else 2
+        # base_size = 3 if use_triplets and variant_size >= 3 else 2
         
         if not base_elements: return random.sample(base_pool, variant_size)
 
@@ -446,4 +445,5 @@ def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_n
         n_plus_1 = n + 1
         
         variant = [n]
-        if n_plus_1 <= max_num and n_plus_1 in base_pool and
+        
+        # CORECȚIA FINALĂ: Asigură-te că c
