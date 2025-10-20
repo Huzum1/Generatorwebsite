@@ -380,13 +380,13 @@ if st.button("🚀 Generează variante"):
 
 st.markdown("---")
 
-# --- Secțiunea 4: Preview & Export (Export Original Reintrodus) ---
+# --- Secțiunea 4: Preview & Export (Export Simplificat) ---
 
 if st.session_state.generation_ran: 
     st.header("4. Preview și Export")
     
     # 1. GENERAREA OUTPUT-ULUI PENTRU PREVIEW ȘI EXPORT
-    export_lines = ["ID,Combinație"] # Header
+    export_lines = []
 
     if st.session_state.variants:
         
@@ -410,23 +410,28 @@ if st.session_state.generation_ran:
         preview_count = min(20, len(st.session_state.variants))
         st.subheader(f"Preview (Primele {preview_count} variante)")
         
-        # POPULARE LINII EXPORT ȘI DATAFRAME
-        for i, v in enumerate(st.session_state.variants):
+        # POPULARE LINII EXPORT (DOAR VARIANTE, SEPARATE PRIN SPAȚIU)
+        preview_data = []
+        for v in st.session_state.variants:
             variant_str_space = " ".join(map(str, sorted(v)))
-            # EXPORT FORMAT: ID,Număr Număr Număr (cum a fost cerut)
-            export_lines.append(f"{i+1},{variant_str_space}")
+            export_lines.append(variant_str_space)
+            preview_data.append(variant_str_space)
         
-        preview_data = [[i+1, " ".join(map(str, v))] for i, v in enumerate(st.session_state.variants[:preview_count])]
-        preview_df = pd.DataFrame(preview_data, columns=["ID", "Combinație"])
+        # PREVIEW AFISAT CU ID PENTRU CLARITATEA VIZUALĂ ÎN APLICAȚIE
+        preview_df = pd.DataFrame(
+            [[i+1, v] for i, v in enumerate(preview_data[:preview_count])], 
+            columns=["ID", "Combinație"]
+        )
         st.dataframe(preview_df, use_container_width=True, hide_index=True)
 
         
         txt_output = "\n".join(export_lines)
         
     else: 
-        # Cazul 0 variante: exportul este doar header-ul
-        st.warning("⚠️ Nu s-au generat variante valide. Fișierul exportat va conține doar antetul (header-ul).")
+        # Cazul 0 variante: exportul este un fișier gol
+        txt_output = ""
+        st.warning("⚠️ Nu s-au generat variante valide. Fișierul exportat va fi gol.")
 
 
     # 2. BUTONUL DE DESCARCARE
-    st.download_button("⬇️ Descarcă variantele (CSV/TXT)", txt_output, "variante_generate_eficient.csv", "text/csv")
+    st.download_button("⬇️ Descarcă variantele (TXT)", txt_output, "variante_generate_eficient.txt", "text/plain")
