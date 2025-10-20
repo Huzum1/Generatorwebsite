@@ -129,22 +129,15 @@ def weighted_sample_unique(population, weights, k):
         
     return sample
 
-# MODIFICARE CRITICĂ: Eliminarea filtrelor stricte (Sumă, Par/Impar, Consecutivitate)
+# Filtru Relaxat (doar unicitate)
 def is_valid_variant(variant, q1, q3, max_num):
     variant_size = len(variant)
     variant_set = set(variant)
     
-    # *** SINGURUL FILTRU RĂMAS: Fără duplicate ***
+    # SINGURUL FILTRU RĂMAS: Fără duplicate
     if len(variant_set) != variant_size: 
         return False
         
-    # --- FILTRELE DE CALITATE AU FOST ELIMINATE ---
-    # Sumă (q1 <= current_sum <= q3) - ELIMINAT
-    # Par/Impar (abs(num_par - num_impar) <= max_diff) - ELIMINAT
-    # Consecutivitate (max_consecutive < 3) - ELIMINAT
-    # Spread (spread >= min_spread) - ELIMINAT
-    # ---------------------------------------------
-
     return True
 
 
@@ -282,7 +275,6 @@ with col_comb:
         use_triplets = False
 
 
-# S-a folosit sintaxa corectă (ghilimele simple în interior)
 ALL_STRATEGIES = {
     "🎯 Standard (Aleatoriu Ponderat)": "standard", 
     "🔥 Hot Numbers (3 din top 10 + rest ponderat)": "hot_numbers", 
@@ -326,7 +318,7 @@ def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_n
         variant = random.sample(top_nums, variant_size)
     else:
         variant = weighted_sample_unique(top_nums, general_weights, variant_size)
-    return list(set(variant)) # Asigură-te că nu sunt duplicate
+    return list(set(variant)) 
 
 # --- Generare Logică Principală ---
 if st.button("🚀 Generează variante"):
@@ -388,13 +380,14 @@ if st.button("🚀 Generează variante"):
 
 st.markdown("---")
 
-# --- Secțiunea 4: Preview & Export (Afișată forțat după generare) ---
+# --- Secțiunea 4: Preview & Export (Export Original Reintrodus) ---
 
 if st.session_state.generation_ran: 
     st.header("4. Preview și Export")
     
-    # Am introdus un bloc de cod complet pentru export pentru a preveni erorile de sintaxă în cazul de 0 variante
-    
+    # 1. GENERAREA OUTPUT-ULUI PENTRU PREVIEW ȘI EXPORT
+    export_lines = ["ID,Combinație"] # Header
+
     if st.session_state.variants:
         
         generated_nums = []
@@ -417,25 +410,24 @@ if st.session_state.generation_ran:
         preview_count = min(20, len(st.session_state.variants))
         st.subheader(f"Preview (Primele {preview_count} variante)")
         
-        preview_df = pd.DataFrame(
-            [[i+1, " ".join(map(str, v))] for i, v in enumerate(st.session_state.variants[:preview_count])],
-            columns=["ID", "Combinație"]
-        )
+        # POPULARE LINII EXPORT ȘI DATAFRAME
+        for i, v in enumerate(st.session_state.variants):
+            variant_str_space = " ".join(map(str, sorted(v)))
+            # EXPORT FORMAT: ID,Număr Număr Număr (cum a fost cerut)
+            export_lines.append(f"{i+1},{variant_str_space}")
+        
+        preview_data = [[i+1, " ".join(map(str, v))] for i, v in enumerate(st.session_state.variants[:preview_count])]
+        preview_df = pd.DataFrame(preview_data, columns=["ID", "Combinație"])
         st.dataframe(preview_df, use_container_width=True, hide_index=True)
 
         
-        export_lines = []
-        for i, v in enumerate(st.session_state.variants):
-            variant_str = ",".join(map(str, sorted(v))) # Format CSV (cu virgulă)
-            export_lines.append(variant_str)
-            
         txt_output = "\n".join(export_lines)
         
-    else: # FALLBACK de export pentru 0 variante
-        # S-a asigurat că textul de eroare este închis corect (f-string)
-        txt_output = f"Nu s-a putut genera nicio variantă validă după {attempts} încercări. Revizuiți filtrele de numere fierbinți și strategiile selectate."
-        st.warning("⚠️ Fișierul de export va conține doar un mesaj de eroare, deoarece nu s-au putut genera variante unice.")
+    else: 
+        # Cazul 0 variante: exportul este doar header-ul
+        txt_output = "ID,Combinație"
+        st.warning("⚠️ Nu s-au generat variante valide. Fișierul exportat va conține doar antetul (header-ul).")
 
 
-    # Am corectat sintaxa st.download_button pentru a evita eroarea "unterminated string literal"
+    # 2. BUTONUL DE DESCARCARE
     st.download_button("⬇️ Descarcă variantele (CSV/TXT)", txt_output, "variante_generate_eficient.csv", "text/csv")
