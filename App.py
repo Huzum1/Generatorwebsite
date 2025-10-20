@@ -10,8 +10,8 @@ st.set_page_config(page_title="Generator Variante Keno Avansat", page_icon="🎯
 st.title("🎯 Generator Variante Keno Avansat & Ultra-Eficient")
 
 st.markdown("""
-Analiză statistică multi-nivel (frecvență, perechi, sumă, istoric) pentru a genera variante loto
-cu eficiență sporită. **Filtrele de calitate obligatorii au fost dezactivate** pentru a permite generarea maximă.
+Analiză statistică multi-nivel (frecvență, perechi, istoric) pentru a genera variante loto
+cu eficiență sporită. **Toate filtrele de calitate au fost eliminate** pentru a permite generarea maximă.
 """)
 
 # --- Session State Initialization ---
@@ -23,8 +23,7 @@ if "frequency" not in st.session_state:
     st.session_state.frequency = {}
 if "historic_rounds" not in st.session_state:
     st.session_state.historic_rounds = []
-if "sum_range" not in st.session_state:
-    st.session_state.sum_range = (0, 1000)
+# st.session_state.sum_range ELIMINAT
 if "max_number" not in st.session_state:
     st.session_state.max_number = 80
 if "pair_frequency" not in st.session_state:
@@ -36,10 +35,9 @@ if "history_depth" not in st.session_state:
 if "avg_reps" not in st.session_state:
     st.session_state.avg_reps = 0
 if "generation_ran" not in st.session_state: 
-    # VARIABILA CRITICĂ: se setează la True după prima apăsare a butonului de generare.
     st.session_state.generation_ran = False 
 
-# --- Funcții Avansate de Analiză (FĂRĂ MODIFICĂRI DE LOGICĂ) ---
+# --- Funcții Avansate de Analiză (FĂRĂ SUMĂ) ---
 def analyze_pairs_triplets(rounds, k_size):
     pair_counts = Counter()
     triplet_counts = Counter()
@@ -54,14 +52,7 @@ def analyze_pairs_triplets(rounds, k_size):
     sorted_triplets = dict(sorted(triplet_counts.items(), key=lambda x: x[1], reverse=True))
     return sorted_pairs, sorted_triplets
 
-def analyze_sum(rounds):
-    sums = [sum(r) for r in rounds]
-    if not sums: return (0, st.session_state.max_number * 20)
-    sums_df = pd.Series(sums)
-    q25 = int(sums_df.quantile(0.25))
-    q75 = int(sums_df.quantile(0.75))
-    st.session_state.sum_range = (q25, q75)
-    return (q25, q75)
+# FUNCTIA analyze_sum A FOST ELIMINATĂ
 
 def analyze_cold_streak(rounds, max_num):
     cold_streak = {}
@@ -106,7 +97,7 @@ def proceseaza_runde(lines, variant_size):
     st.session_state.frequency = dict(sorted_freq)
     st.session_state.historic_rounds = rounds_data
     st.session_state.pair_frequency, st.session_state.triplet_frequency = analyze_pairs_triplets(rounds_data, variant_size)
-    st.session_state.sum_range = analyze_sum(rounds_data)
+    # analyze_sum(rounds_data) ELIMINAT
     st.session_state.avg_reps = analyze_repetitions(rounds_data)
     return frequency, sorted_freq, all_numbers
 
@@ -131,7 +122,8 @@ def weighted_sample_unique(population, weights, k):
     return sample
 
 # Filtru Relaxat (doar unicitate)
-def is_valid_variant(variant, q1, q3, max_num):
+# ELIMINĂM q1, q3
+def is_valid_variant(variant, max_num):
     variant_size = len(variant)
     variant_set = set(variant)
     
@@ -174,6 +166,9 @@ uploaded_file = None
 manual_input = ""
 lines = []
 
+if "process_ran" not in st.session_state:
+    st.session_state.process_ran = False
+
 with tab1:
     uploaded_file = st.file_uploader("📂 CSV/TXT cu extragerile din runde", type=["csv", "txt"])
     if uploaded_file:
@@ -197,8 +192,10 @@ if st.button("✅ Procesează rundele și rulează analiza"):
 
     if results is not None:
         frequency, sorted_freq, all_numbers = results
+        st.session_state.process_ran = True # Setăm că analiza a rulat
         st.success(f"✅ Analiză completă pe **{len(st.session_state.historic_rounds)}** runde.")
-        st.info(f"Suma optimă (Q25-Q75): **{st.session_state.sum_range[0]}** - **{st.session_state.sum_range[1]}** | Repetiții mediane runda N-1: **{st.session_state.avg_reps}**")
+        # AFISAREA SUMEI ELIMINATĂ
+        st.info(f"Repetiții mediane runda N-1: **{st.session_state.avg_reps}**")
 
 
 st.markdown("---")
@@ -288,7 +285,7 @@ ALL_STRATEGIES = {
     "⛓️ Numere Consecutive (Asigură o pereche)": "consecutive_pair",
     "⭐ Frecvență & Vecinătate": "frequency_neighbors",
     "💡 Restantierul (Cold Booster)": "cold_booster",
-    "⚖️ Somă Medie (Selecție Ponderată pe Suma Optimă)": "average_sum_weighted",
+    "⚖️ Somă Medie (Selecție Ponderată pe Suma Optimă)": "average_sum_weighted", # Păstrăm cheia, dar ignorăm logica
     "🧬 Adâncimea Istoriei (Aderență la ultimele N runde)": "history_adherence",
     "🧪 Mix Strategy (Combinație aleatorie a strategiilor)": "mix_strategy",
     "🌡️ Termometrul (Hot/Cold Ratio 70/30)": "hot_cold_ratio",
@@ -312,7 +309,8 @@ for i, (label, key) in enumerate(strategy_items):
 st.session_state.selected_strategies = selected_strategies_keys
 
 # --- Functie pentru generarea variantei pe baza strategiei (Logica) ---
-def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_numbers, max_num, q1, q3, cold_data, top_pairs, top_triplets, cold_candidates, historic_rounds, avg_reps, use_triplets):
+# ELIMINĂM q1, q3
+def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_numbers, max_num, cold_data, top_pairs, top_triplets, cold_candidates, historic_rounds, avg_reps, use_triplets):
     if len(top_nums) < variant_size: return []
     general_weights = [st.session_state.frequency.get(n, 1) for n in top_nums]
     if not general_weights or sum(general_weights) == 0 or strategy_key == "standard":
@@ -323,14 +321,15 @@ def generate_variant_by_strategy(strategy_key, top_nums, variant_size, exclude_n
 
 # --- Generare Logică Principală ---
 if st.button("🚀 Generează variante"):
-    if not st.session_state.top_numbers:
-        st.error("❌ Încarcă datele și configurează filtrele în Secțiunile 1 & 2.")
+    if not st.session_state.process_ran:
+        st.error("❌ Te rugăm să încarci datele și să rulezi analiza în Secțiunea 1.")
+    elif not st.session_state.top_numbers:
+        st.error("❌ Configurează filtrele în Secțiunea 2 (Numerele disponibile sunt 0).")
     elif variant_size > len(st.session_state.top_numbers):
         st.error(f"❌ Mărimea variantei ({variant_size}) este mai mare decât numerele disponibile ({len(st.session_state.top_numbers)}).")
     elif not st.session_state.selected_strategies:
         st.error("❌ Te rugăm să selectezi cel puțin o strategie de generare.")
     else:
-        # ASIGURĂM CĂ SECȚIUNEA DE EXPORT VA APARE
         st.session_state.generation_ran = True 
 
         top_nums = st.session_state.top_numbers
@@ -340,7 +339,7 @@ if st.button("🚀 Generează variante"):
         attempts = 0
         
         max_num = st.session_state.max_number
-        q1, q3 = st.session_state.sum_range
+        # q1, q3 ELIMINAT
         cold_data = analyze_cold_streak(st.session_state.historic_rounds, max_num)
         cold_candidates = [num for num, age in cold_data.items() if num not in top_nums and num not in exclude_numbers]
         top_pairs = st.session_state.pair_frequency
@@ -354,13 +353,13 @@ if st.button("🚀 Generează variante"):
             strategy_key = strategies_to_use[attempts % num_strategies]
             
             variant = generate_variant_by_strategy(
-                strategy_key, top_nums, variant_size, exclude_numbers, max_num, q1, q3, 
+                strategy_key, top_nums, variant_size, exclude_numbers, max_num, 
                 cold_data, top_pairs, top_triplets, cold_candidates, 
                 st.session_state.historic_rounds, st.session_state.avg_reps, use_triplets
             )
             
-            # FILTRUL RELAXAT: Doar unicitate și mărime
-            if len(variant) == variant_size and is_valid_variant(variant, q1, q3, max_num):
+            # FILTRUL RELAXAT: Doar unicitate și mărime. ELIMINĂM q1, q3
+            if len(variant) == variant_size and is_valid_variant(variant, max_num):
                 final_variant = tuple(sorted(variant))
                 if final_variant not in variants:
                     variants.add(final_variant)
@@ -374,23 +373,21 @@ if st.button("🚀 Generează variante"):
         if len(st.session_state.variants) > 0:
             st.success(f"✅ Generate **{len(st.session_state.variants)}** variante UNICE ({variant_size}/{variant_size}) din {num_variants} dorite, în {attempts} încercări, folosind strategiile: **{', '.join(selected_strategy_labels)}**")
             if len(st.session_state.variants) < num_variants:
-                 st.warning(f"⚠️ **ATENȚIE**: Au fost generate doar {len(st.session_state.variants)} din {num_variants} dorite. Aceasta înseamnă că setul de numere fierbinți și/sau strategiile sunt încă prea restrictive pentru a ajunge la ținta de variante unice.")
+                 st.warning(f"⚠️ **ATENȚIE**: Au fost generate doar {len(st.session_state.variants)} din {num_variants} dorite. Mărește 'Top N' din Secțiunea 2.")
         else:
              st.error(f"❌ Nu s-a putut genera nicio variantă unică. Încercări totale: {attempts}.")
-             st.info("Sugestie: Deși filtrele de calitate obligatorii au fost eliminate, selectarea unui număr prea mic de numere fierbinți în Secțiunea 2 (e.g., doar 10 numere pentru o variantă de 8) va limita în continuare generarea.")
 
 
 st.markdown("---")
 
-# --- Secțiunea 4: Preview & Export (Secțiune afișată forțat) ---
+# --- Secțiunea 4: Preview & Export (ID și Combinație, Fără Antet) ---
 
+# Secțiunea de export este afișată dacă măcar o dată s-a rulat generarea
 if st.session_state.generation_ran: 
     st.header("4. Preview și Export")
     
-    # 1. GENERAREA OUTPUT-ULUI PENTRU PREVIEW ȘI EXPORT
     export_lines = []
-    
-    # Afișarea statisticilor și preview-ului
+
     if st.session_state.variants:
         
         generated_nums = []
@@ -406,8 +403,8 @@ if st.session_state.generation_ran:
             st.info(f"Top 10 numere folosite: {', '.join([f'{n}({f}x)' for n, f in top_generated])}")
             
         with col_g2:
-            avg_sum = sum(sum(v) for v in st.session_state.variants) / len(st.session_state.variants)
-            st.info(f"Suma medie a variantelor generate: **{avg_sum:.2f}** (Optim: {st.session_state.sum_range[0]}-{st.session_state.sum_range[1]})")
+            # ELIMINARE STATISTICĂ SUMĂ MEDIE
+            st.info(f"Număr mediu de repetiții cu runda precedentă: **{st.session_state.avg_reps}**")
 
         
         preview_count = min(20, len(st.session_state.variants))
@@ -417,10 +414,10 @@ if st.session_state.generation_ran:
         for i, v in enumerate(st.session_state.variants):
             variant_str_space = " ".join(map(str, sorted(v)))
             
-            # FORMATUL CERUT PENTRU EXPORT: ID spațiu Numere
+            # FORMATUL FINAL CERUT PENTRU EXPORT: ID spațiu Numere
             export_lines.append(f"{i+1} {variant_str_space}")
             
-            # Folosim formatul ID, Combinație pentru afișarea în aplicație (mai clar)
+            # Folosim ID, Combinație pentru afișarea în aplicație
             preview_data_app.append([i+1, variant_str_space])
         
         
