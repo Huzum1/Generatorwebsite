@@ -937,13 +937,3 @@ if st.session_state.generation_ran:
                         st.text(f"{i+1}. {' '.join(map(str, sorted(v)))}")
                 else:
                     st.warning("⚠️ Nicio variantă nu îndeplinește criteriile selectate")
-
-# --- Footer ---
-st.markdown("---")
-st.markdown("""
-<div style='text-align: center; color: #666; padding: 20px;'>
-    <p><strong>🎯 Generator Variante Keno Avansat</strong></p>
-    <p>Analiză statistică multi-nivel | 19 strategii disponibile | Export flexibil</p>
-    <p style='font-size: 0.8em;'>Folosește acest tool în mod responsabil. Rezultatele sunt generate statistic și nu garantează câștiguri.</p>
-</div>
-""", unsafe_allow_html=True)"
