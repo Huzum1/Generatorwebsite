@@ -946,4 +946,4 @@ st.markdown("""
     <p>Analiză statistică multi-nivel | 19 strategii disponibile | Export flexibil</p>
     <p style='font-size: 0.8em;'>Folosește acest tool în mod responsabil. Rezultatele sunt generate statistic și nu garantează câștiguri.</p>
 </div>
-""", unsafe_allow_html=True)
+""", unsafe_allow_html=True)"
